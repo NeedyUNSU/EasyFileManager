@@ -24,6 +24,9 @@
             <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
             <converters:InverseCountToVisibilityConverter x:Key="InverseCountToVisibilityConverter"/>
+            <converters:FileSizeConverter x:Key="FileSizeConverter"/>
+            <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+            <converters:BooleanToGridLengthConverter x:Key="BooleanToGridLengthConverter"/>
 
             <!-- Custom Styles -->
             <Style x:Key="CustomGridViewColumnHeader" TargetType="GridViewColumnHeader">

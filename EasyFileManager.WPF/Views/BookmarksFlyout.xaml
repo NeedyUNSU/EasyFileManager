@@ -24,13 +24,13 @@
                 <materialDesign:PackIcon Kind="Bookmark"
                                          Width="24"
                                          Height="24"
-                                         Foreground="White"
+                                         Foreground="{DynamicResource MaterialDesignBody}"
                                          VerticalAlignment="Center"
                                          DockPanel.Dock="Left"
                                          Margin="0,0,12,0"/>
                 <TextBlock Text="Bookmarks"
                            Style="{StaticResource MaterialDesignHeadline6TextBlock}"
-                           Foreground="White"
+                           Foreground="{DynamicResource MaterialDesignBody}"
                            VerticalAlignment="Center"/>
             </DockPanel>
         </Border>
@@ -93,13 +93,13 @@
 
                                 <!-- Actions Menu -->
                                 <Button Grid.Column="2"
-        Style="{StaticResource MaterialDesignIconButton}"
-        Width="32"
-        Height="32"
-        Padding="0"
-        VerticalAlignment="Center"
-        Click="ActionsButton_Click"
-        Tag="{Binding}">
+                                        Style="{StaticResource MaterialDesignIconButton}"
+                                        Width="32"
+                                        Height="32"
+                                        Padding="0"
+                                        VerticalAlignment="Center"
+                                        Click="ActionsButton_Click"
+                                        Tag="{Binding}">
                                     <materialDesign:PackIcon Kind="DotsVertical" Width="18" Height="18"/>
                                 </Button>
                             </Grid>

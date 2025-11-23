@@ -29,6 +29,10 @@
             <KeyBinding Key="D" Modifiers="Ctrl" 
             Command="{Binding ToggleBookmarksFlyoutCommand}"/>
 
+            <!-- Preview Panel -->
+            <KeyBinding Key="F3" 
+                Command="{Binding TogglePreviewPanelCommand}"/>
+
             <!-- Filter -->
             <KeyBinding Key="F" Modifiers="Ctrl" 
                 Command="{Binding ActivePanel.ShowFilterCommand}"/>
@@ -61,9 +65,9 @@
 
         <!-- Top Bar -->
         <materialDesign:ColorZone Grid.Row="0" 
-                                   Mode="PrimaryMid" 
-                                   Padding="16"
-                                   materialDesign:ElevationAssist.Elevation="Dp4">
+                                  Mode="PrimaryMid" 
+                                  Padding="16"
+                                  materialDesign:ElevationAssist.Elevation="Dp4">
             <DockPanel>
                 <StackPanel Orientation="Horizontal">
                     <materialDesign:PackIcon Kind="Folder" 
@@ -75,25 +79,35 @@
                                VerticalAlignment="Center"
                                Style="{StaticResource MaterialDesignHeadline5TextBlock}"/>
                 </StackPanel>
-
+                
                 <StackPanel Orientation="Horizontal" 
                             HorizontalAlignment="Right"
                             DockPanel.Dock="Right">
-
+                    
+                    <!-- Bookmarks button -->
                     <ToggleButton Style="{StaticResource MaterialDesignActionToggleButton}"
-              IsChecked="{Binding DataContext.IsBookmarksFlyoutOpen, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}"
-              Foreground="{DynamicResource MaterialDesignBody}"
-              ToolTip="Bookmarks (Ctrl+D)"
-              Margin="8,0">
+                                  IsChecked="{Binding DataContext.IsBookmarksFlyoutOpen, RelativeSource={RelativeSourceAncestorTypeWindow},         Mode=TwoWay}"
+                                  Foreground="{DynamicResource MaterialDesignBody}"
+                                  ToolTip="Bookmarks (Ctrl+D)"
+                                  Margin="8,0">
                         <materialDesign:PackIcon Kind="Bookmark" Width="20" Height="20"/>
+                    </ToggleButton>
+
+                    <!-- Preview Panel Toggle -->
+                    <ToggleButton Style="{StaticResource MaterialDesignActionToggleButton}"
+                                  IsChecked="{Binding DataContext.IsPreviewPanelVisible, RelativeSource={RelativeSourceAncestorTypeWindow},         Mode=TwoWay}"
+                                  Foreground="{DynamicResource MaterialDesignBody}"
+                                  ToolTip="Preview Panel (F3)"
+                                  Margin="8,0">
+                        <materialDesign:PackIcon Kind="Eye" Width="20" Height="20"/>
                     </ToggleButton>
 
                     <!-- Vertical separator -->
                     <Border Width="1" 
-            Height="24"
-            Background="{DynamicResource MaterialDesignDivider}"
-            Margin="8,0"
-            Opacity="0.5"/>
+                            Height="24"
+                            Background="{DynamicResource MaterialDesignDivider}"
+                            Margin="8,0"
+                            Opacity="0.5"/>
 
                     <!-- Copy to other panel -->
                     <Button Style="{StaticResource MaterialDesignIconButton}"
@@ -159,14 +173,23 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="5"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition>
+                    <ColumnDefinition.Width>
+                        <Binding Path="IsPreviewPanelVisible" Converter="{StaticResource BooleanToGridLengthConverter}" ConverterParameter="5"/>
+                    </ColumnDefinition.Width>
+                </ColumnDefinition>
+                <ColumnDefinition>
+                    <ColumnDefinition.Width>
+                        <Binding Path="IsPreviewPanelVisible" Converter="{StaticResource BooleanToGridLengthConverter}" ConverterParameter="350"/>
+                    </ColumnDefinition.Width>
+                </ColumnDefinition>
             </Grid.ColumnDefinitions>
 
             <!-- Left Panel -->
             <materialDesign:Card Grid.Column="0" DataContext="{Binding LeftPanel}">
                 <i:Interaction.Behaviors>
-                    <behaviors:ActivePanelBehavior 
-                        ViewModel="{Binding}"
-                        MainViewModel="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                    <behaviors:ActivePanelBehavior ViewModel="{Binding}"
+                                                   MainViewModel="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"/>
                 </i:Interaction.Behaviors>
 
                 <Grid>
@@ -340,6 +363,7 @@
                               SelectionChanged="ListView_SelectionChanged"
                               ItemsSource="{Binding Items}"
                               SelectedItem="{Binding SelectedItem}"
+                              GotFocus="ListView_GotFocus"
                               Style="{StaticResource MaterialDesignListView}"
                               ItemContainerStyle="{StaticResource AlternatingListViewItemStyle}"
                               AlternationCount="2"
@@ -499,9 +523,8 @@
             <!-- Right Panel -->
             <materialDesign:Card Grid.Column="2" DataContext="{Binding RightPanel}">
                 <i:Interaction.Behaviors>
-                    <behaviors:ActivePanelBehavior 
-                        ViewModel="{Binding}"
-                        MainViewModel="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                    <behaviors:ActivePanelBehavior ViewModel="{Binding}"
+                                                   MainViewModel="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"/>
                 </i:Interaction.Behaviors>
 
                 <Grid>
@@ -672,6 +695,7 @@
                               SelectionChanged="ListView_SelectionChanged"
                               ItemsSource="{Binding Items}"
                               SelectedItem="{Binding SelectedItem}"
+                              GotFocus="ListView_GotFocus"
                               Style="{StaticResource MaterialDesignListView}"
                               ItemContainerStyle="{StaticResource AlternatingListViewItemStyle}"
                               AlternationCount="2"
@@ -821,12 +845,23 @@
                     </ListView>
                 </Grid>
             </materialDesign:Card>
+            
+            <!-- Splitter for Preview Panel -->
+            <GridSplitter Grid.Column="3" 
+                          Width="5" 
+                          HorizontalAlignment="Stretch"
+                          Background="{DynamicResource MaterialDesignDivider}"/>
+
+            <!-- Preview Panel -->
+            <materialDesign:Card Grid.Column="4">
+                <views:PreviewPanel DataContext="{Binding Path=PreviewPanelViewModel}"/>
+            </materialDesign:Card>
         </Grid>
 
         <!-- Status Bar -->
         <materialDesign:ColorZone Grid.Row="2" 
-                                   Mode="PrimaryLight" 
-                                   Padding="8">
+                                  Mode="PrimaryLight" 
+                                  Padding="8">
             <DockPanel>
                 <TextBlock Text="{Binding LeftPanel.StatusMessage}" 
                            VerticalAlignment="Center"
@@ -851,7 +886,7 @@
             </DockPanel>
         </materialDesign:ColorZone>
 
-        <!-- ✅ DODAJ TO - Bookmarks Flyout -->
+        <!-- Bookmarks Flyout -->
         <Border Grid.RowSpan="3"
                 HorizontalAlignment="Right"
                 Width="320"
@@ -876,7 +911,5 @@
                 Panel.ZIndex="99"
                 Visibility="{Binding IsBookmarksFlyoutOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
                 MouseLeftButtonDown="Overlay_MouseLeftButtonDown"/>
-
-
     </Grid>
 </Window>

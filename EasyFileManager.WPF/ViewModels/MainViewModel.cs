@@ -49,6 +49,32 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
+    [ObservableProperty]
+    private bool _isPreviewPanelVisible = true;
+    partial void OnIsPreviewPanelVisibleChanged(bool value)
+    {
+        System.Diagnostics.Debug.WriteLine($"@@@ MainViewModel.IsPreviewPanelVisible changed to: {value}");
+        if (_previewPanelViewModel != null)
+        {
+            _previewPanelViewModel.IsVisible = value;
+        }
+    }
+
+    private PreviewPanelViewModel? _previewPanelViewModel;
+    public PreviewPanelViewModel PreviewPanelViewModel
+    {
+        get
+        {
+            if (_previewPanelViewModel == null)
+            {
+                System.Diagnostics.Debug.WriteLine("@@@ Creating PreviewPanelViewModel via DI...");
+                _previewPanelViewModel = _serviceProvider.GetRequiredService<PreviewPanelViewModel>();
+                System.Diagnostics.Debug.WriteLine("@@@ PreviewPanelViewModel created successfully");
+            }
+            return _previewPanelViewModel;
+        }
+    }
+
     // ====== Constructor with DI ======
 
     public MainViewModel(
@@ -113,6 +139,17 @@ public partial class MainViewModel : ViewModelBase
     {
         IsBookmarksFlyoutOpen = !IsBookmarksFlyoutOpen;
         _logger.LogDebug("Bookmarks flyout toggled: {IsOpen}", IsBookmarksFlyoutOpen);
+    }
+
+    [RelayCommand]
+    private void TogglePreviewPanel()
+    {
+        System.Diagnostics.Debug.WriteLine($"@@@ TogglePreviewPanel CALLED - Current: {IsPreviewPanelVisible}");
+        IsPreviewPanelVisible = !IsPreviewPanelVisible;
+        System.Diagnostics.Debug.WriteLine($"@@@ New value: {IsPreviewPanelVisible}");
+
+        PreviewPanelViewModel.IsVisible = IsPreviewPanelVisible;
+        _logger.LogDebug("Preview panel toggled: {IsVisible}", IsPreviewPanelVisible);
     }
 
     [RelayCommand]

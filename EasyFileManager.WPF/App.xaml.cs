@@ -52,11 +52,13 @@ public partial class App : Application
         services.AddSingleton<IFileSystemService, AsyncFileSystemService>();
         services.AddSingleton<IFileTransferService, FileTransferService>();
         services.AddSingleton<IBookmarkService, BookmarkService>();
+        services.AddSingleton<IPreviewService, PreviewService>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();
         services.AddTransient<FileExplorerViewModel>();
         services.AddSingleton<BookmarksViewModel>();
+        services.AddSingleton<PreviewPanelViewModel>();
 
         _serviceProvider = services.BuildServiceProvider();
 
