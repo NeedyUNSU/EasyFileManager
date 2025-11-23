@@ -1,0 +1,110 @@
+﻿<Window x:Class="EasyFileManager.WPF.Views.FileTransferDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="File Transfer" 
+        Height="300" 
+        Width="500"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        Style="{StaticResource MaterialDesignWindow}">
+    <Border BorderBrush="{DynamicResource PrimaryHueMidBrush}"
+            BorderThickness="2"
+            CornerRadius="4">
+        <Grid Margin="24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+                <materialDesign:PackIcon Kind="FileTransfer" 
+                                         Width="32" 
+                                         Height="32"
+                                         VerticalAlignment="Center"
+                                         Margin="0,0,12,0"/>
+                <TextBlock x:Name="TitleTextBlock"
+                           Text="Copying files..."
+                           Style="{StaticResource MaterialDesignHeadline5TextBlock}"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Current file -->
+            <StackPanel Grid.Row="1" Margin="0,0,0,16">
+                <TextBlock Text="Current file:"
+                           Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                           Opacity="0.7"
+                           Margin="0,0,0,4"/>
+                <TextBlock x:Name="CurrentFileTextBlock"
+                           Text="file.txt"
+                           Style="{StaticResource MaterialDesignBody1TextBlock}"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+            </StackPanel>
+
+            <!-- Current file progress -->
+            <StackPanel Grid.Row="2" Margin="0,0,0,8">
+                <DockPanel Margin="0,0,0,4">
+                    <TextBlock x:Name="CurrentFileProgressTextBlock"
+                               Text="0%"
+                               DockPanel.Dock="Right"
+                               Style="{StaticResource MaterialDesignBody2TextBlock}"/>
+                    <TextBlock Text="File progress:"
+                               Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                               Opacity="0.7"/>
+                </DockPanel>
+                <ProgressBar x:Name="CurrentFileProgressBar"
+                             Height="8"
+                             Minimum="0"
+                             Maximum="100"
+                             Value="0"/>
+            </StackPanel>
+
+            <!-- Overall progress -->
+            <StackPanel Grid.Row="3" Margin="0,0,0,16">
+                <DockPanel Margin="0,0,0,4">
+                    <TextBlock x:Name="OverallProgressTextBlock"
+                               Text="0%"
+                               DockPanel.Dock="Right"
+                               Style="{StaticResource MaterialDesignBody2TextBlock}"/>
+                    <TextBlock Text="Overall progress:"
+                               Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                               Opacity="0.7"/>
+                </DockPanel>
+                <ProgressBar x:Name="OverallProgressBar"
+                             Height="8"
+                             Minimum="0"
+                             Maximum="100"
+                             Value="0"/>
+
+                <!-- Stats -->
+                <TextBlock x:Name="StatsTextBlock"
+                           Text="0 / 0 files"
+                           Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                           Opacity="0.7"
+                           Margin="0,8,0,0"/>
+            </StackPanel>
+
+            <!-- Buttons -->
+            <StackPanel Grid.Row="4" 
+                        Orientation="Horizontal" 
+                        HorizontalAlignment="Right">
+                <Button x:Name="CancelButton"
+                        Content="CANCEL"
+                        Click="CancelButton_Click"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        Margin="0,0,8,0"/>
+                <Button x:Name="CloseButton"
+                        Content="CLOSE"
+                        Click="CloseButton_Click"
+                        Visibility="Collapsed"
+                        Style="{StaticResource MaterialDesignRaisedButton}"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

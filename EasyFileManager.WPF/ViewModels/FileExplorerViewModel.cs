@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using EasyFileManager.Core.Interfaces;
 using EasyFileManager.Core.Models;
 using EasyFileManager.Core.Services;
+using EasyFileManager.WPF.Views;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
@@ -21,7 +22,7 @@ public partial class FileExplorerViewModel : ViewModelBase
     private readonly IAppLogger<FileExplorerViewModel> _logger;
     private readonly IFileTransferService _fileTransferService;
 
-    // ====== ObservableProperties (auto-generated z source generators) ======
+    // ====== ObservableProperties ======
 
     [ObservableProperty]
     private string _currentPath = string.Empty;
@@ -31,6 +32,9 @@ public partial class FileExplorerViewModel : ViewModelBase
 
     [ObservableProperty]
     private FileSystemEntry? _selectedItem;
+
+    [ObservableProperty]
+    private ObservableCollection<FileSystemEntry> _selectedItems = new();
 
     [ObservableProperty]
     private bool _isLoading;
@@ -85,7 +89,6 @@ public partial class FileExplorerViewModel : ViewModelBase
         _fileTransferService = fileTransferService ?? throw new ArgumentNullException(nameof(fileTransferService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-        // Domyślna ścieżka
         CurrentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         _ = LoadDrivesAsync();
         
@@ -290,48 +293,72 @@ public partial class FileExplorerViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void DeleteItem(FileSystemEntry? item)
+    private async Task DeleteItem(FileSystemEntry? item)
     {
-        if (item == null)
+        _logger.LogDebug("DeleteItem called. Param: {Param}, SelectedItems.Count: {Count}, SelectedItem: {Selected}",
+        item?.Name ?? "null",
+        SelectedItems.Count,
+        SelectedItem?.Name ?? "null");
+
+        var itemsToDelete = item != null
+            ? new[] { item }
+            : SelectedItems.Count > 0
+                ? SelectedItems.ToArray()
+                : SelectedItem != null
+                    ? new[] { SelectedItem }
+                    : Array.Empty<FileSystemEntry>();
+
+        if (itemsToDelete.Length == 0)
+        {
+            _logger.LogWarning("No items selected for delete");
             return;
+        }
 
-        var result = MessageBox.Show(
-            $"Are you sure you want to delete:\n{item.Name}?",
-            "Confirm Delete",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+        var itemText = itemsToDelete.Length == 1
+            ? $"'{itemsToDelete[0].Name}'"
+            : $"{itemsToDelete.Length} items";
 
-        if (result != MessageBoxResult.Yes)
+        var dialog = itemsToDelete.Length == 1
+            ? new DeleteConfirmDialog(itemsToDelete[0].Name)
+            : new DeleteConfirmDialog(itemsToDelete.Select(i => i.Name));
+
+        dialog.Owner = Application.Current.MainWindow;
+        dialog.ShowDialog();
+
+        if (!dialog.Confirmed)
             return;
 
         try
         {
-            if (item is DirectoryEntry)
+            IsLoading = true;
+            StatusMessage = $"Deleting {itemText}...";
+
+            foreach (var itemToDelete in itemsToDelete)
             {
-                Directory.Delete(item.FullPath, recursive: true);
-                _logger.LogInformation("Deleted directory: {Path}", item.FullPath);
-            }
-            else
-            {
-                File.Delete(item.FullPath);
-                _logger.LogInformation("Deleted file: {Path}", item.FullPath);
+                if (itemToDelete is DirectoryEntry)
+                {
+                    Directory.Delete(itemToDelete.FullPath, recursive: true);
+                }
+                else
+                {
+                    File.Delete(itemToDelete.FullPath);
+                }
+                _logger.LogInformation("Deleted: {Path}", itemToDelete.FullPath);
             }
 
-            // Odśwież widok
-            Items.Remove(item);
-            TotalItems = Items.Count;
-            TotalSize = CalculateTotalSize(Items);
-            StatusMessage = $"Deleted: {item.Name}";
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            _logger.LogError(ex, "Access denied when deleting: {Path}", item.FullPath);
-            MessageBox.Show($"Access denied:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusMessage = $"Deleted {itemsToDelete.Length} item(s)";
+
+            // Refresh view
+            await LoadDirectoryAsync();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to delete: {Path}", item.FullPath);
-            MessageBox.Show($"Failed to delete:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            _logger.LogError(ex, "Failed to delete items");
+            MessageBox.Show($"Failed to delete:\n{ex.Message}", "Delete Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            IsLoading = false;
         }
     }
 
@@ -365,11 +392,59 @@ public partial class FileExplorerViewModel : ViewModelBase
     private void RenameItem(FileSystemEntry? item)
     {
         if (item == null)
+        {
+            _logger.LogWarning("No item selected for rename");
+            return;
+        }
+
+        var dialog = new RenameDialog(item.Name)
+        {
+            Owner = Application.Current.MainWindow
+        };
+
+        if (dialog.ShowDialog() != true)
             return;
 
-        // TODO: To zrobimy w następnym kroku (inline editing lub dialog)
-        StatusMessage = $"Rename feature coming soon for: {item.Name}";
-        _logger.LogDebug("Rename requested for: {Path}", item.FullPath);
+        var newName = dialog.NewName;
+
+        if (string.IsNullOrWhiteSpace(newName) || newName == item.Name)
+            return;
+
+        try
+        {
+            var directory = Path.GetDirectoryName(item.FullPath);
+            var newPath = Path.Combine(directory ?? string.Empty, newName);
+
+            if (File.Exists(newPath) || Directory.Exists(newPath))
+            {
+                MessageBox.Show(
+                    $"A file or folder with the name '{newName}' already exists.",
+                    "Rename Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            if (item is DirectoryEntry)
+            {
+                Directory.Move(item.FullPath, newPath);
+            }
+            else
+            {
+                File.Move(item.FullPath, newPath);
+            }
+
+            _logger.LogInformation("Renamed {Old} to {New}", item.Name, newName);
+            StatusMessage = $"Renamed to {newName}";
+
+            // Refresh view
+            _ = LoadDirectoryAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to rename {Path}", item.FullPath);
+            MessageBox.Show($"Failed to rename:\n{ex.Message}", "Rename Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     [RelayCommand]
@@ -413,6 +488,229 @@ public partial class FileExplorerViewModel : ViewModelBase
         {
             // Wracamy do breadcrumb - załaduj ścieżkę
             _ = LoadDirectoryAsync();
+        }
+    }
+
+    [RelayCommand]
+    private async Task CopyToTargetPanel()
+    {
+        if (SelectedItem == null)
+        {
+            _logger.LogWarning("No item selected for copy");
+            return;
+        }
+
+        var mainWindow = Application.Current.MainWindow;
+        if (mainWindow?.DataContext is not MainViewModel mainVm)
+        {
+            _logger.LogError(new Exception(""), "Cannot get MainViewModel");
+            return;
+        }
+
+        var targetPanel = mainVm.GetTargetPanel(this);
+        var destinationPath = targetPanel.CurrentPath;
+
+        _logger.LogInformation("Copying {Item} to {Destination}", SelectedItem.Name, destinationPath);
+
+        // Progress dialog
+        var progressDialog = new FileTransferDialog("Copying")
+        {
+            Owner = mainWindow
+        };
+
+        var progress = new Progress<FileTransferProgress>(p => progressDialog.UpdateProgress(p));
+
+        // Conflict handler
+        Func<FileConflictInfo, Task<FileConflictResolution>> conflictResolver = async (conflict) =>
+        {
+            FileConflictResolution? resolution = null;
+
+            await progressDialog.Dispatcher.InvokeAsync(() =>
+            {
+                var conflictDialog = new FileConflictDialog(conflict)
+                {
+                    Owner = Application.Current.MainWindow
+                };
+                conflictDialog.ShowDialog();
+                resolution = conflictDialog.Result;
+
+                System.Diagnostics.Debug.WriteLine($">>> Dialog returned: {resolution?.Action}");
+            });
+
+            if (resolution == null)
+            {
+                System.Diagnostics.Debug.WriteLine(">>> Resolution is NULL - returning Cancel");
+                return new FileConflictResolution { Action = ConflictAction.Cancel };
+            }
+
+            return resolution;
+        };
+
+        var transferTask = Task.Run(async () =>
+        {
+            try
+            {
+                var sourcePaths = SelectedItems.Count > 0
+                    ? SelectedItems.Select(i => i.FullPath).ToArray()
+                    : new[] { SelectedItem!.FullPath };
+
+                await _fileTransferService.CopyAsync(
+                    sourcePaths,
+                    destinationPath,
+                    progress,
+                    progressDialog.CancellationToken,
+                    conflictResolver);
+
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("Copy operation cancelled by user");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Copy failed");
+                progressDialog.Dispatcher.Invoke(() =>
+                {
+                    MessageBox.Show($"Failed to copy:\n{ex.Message}", "Copy Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                });
+                return false;
+            }
+        });
+
+        progressDialog.Show();
+
+        var success = await transferTask;
+
+        progressDialog.SetCompleted(success);
+
+        if (success)
+        {
+            var count = SelectedItems.Count > 0 ? SelectedItems.Count : 1;
+            StatusMessage = $"Copied {count} item(s)";
+            await targetPanel.LoadDirectoryAsync();
+        }
+        else
+        {
+            StatusMessage = "Copy cancelled or failed";
+        }
+    }
+
+    [RelayCommand]
+    private async Task MoveToTargetPanel()
+    {
+        if (SelectedItem == null)
+        {
+            _logger.LogWarning("No item selected for move");
+            return;
+        }
+
+        var mainWindow = Application.Current.MainWindow;
+        if (mainWindow?.DataContext is not MainViewModel mainVm)
+        {
+            _logger.LogError(new Exception(""), "Cannot get MainViewModel");
+            return;
+        }
+
+        var targetPanel = mainVm.GetTargetPanel(this);
+        var destinationPath = targetPanel.CurrentPath;
+
+        var count = SelectedItems.Count > 0 ? SelectedItems.Count : 1;
+        var itemText = count == 1 ? $"'{SelectedItem.Name}'" : $"{count} items";
+
+        //var result = MessageBox.Show(
+        //    $"Move {itemText} to '{destinationPath}'?",
+        //    "Confirm Move",
+        //    MessageBoxButton.YesNo,
+        //    MessageBoxImage.Question);
+
+        //if (result != MessageBoxResult.Yes)
+        //    return;
+
+        _logger.LogInformation("Moving {Count} item(s) to {Destination}", count, destinationPath);
+
+        // Progress dialog
+        var progressDialog = new FileTransferDialog("Moving")
+        {
+            Owner = Application.Current.MainWindow
+        };
+
+        var progress = new Progress<FileTransferProgress>(p => progressDialog.UpdateProgress(p));
+
+        Func<FileConflictInfo, Task<FileConflictResolution>> conflictResolver = async (conflict) =>
+        {
+            FileConflictResolution? resolution = null;
+
+            await progressDialog.Dispatcher.InvokeAsync(() =>
+            {
+                var conflictDialog = new FileConflictDialog(conflict)
+                {
+                    Owner = Application.Current.MainWindow
+                };
+                conflictDialog.ShowDialog();
+                resolution = conflictDialog.Result;
+
+                System.Diagnostics.Debug.WriteLine($">>> Dialog returned: {resolution?.Action}");
+            });
+
+            if (resolution == null)
+            {
+                System.Diagnostics.Debug.WriteLine(">>> Resolution is NULL - returning Cancel");
+                return new FileConflictResolution { Action = ConflictAction.Cancel };
+            }
+
+            return resolution;
+        };
+
+        var transferTask = Task.Run(async () =>
+        {
+            try
+            {
+                var sourcePaths = SelectedItems.Count > 0
+                    ? SelectedItems.Select(i => i.FullPath).ToArray()
+                    : new[] { SelectedItem!.FullPath };
+
+                await _fileTransferService.MoveAsync(
+                    sourcePaths,
+                    destinationPath,
+                    progress,
+                    progressDialog.CancellationToken,
+                    conflictResolver);
+
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("Move operation cancelled by user");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Move failed");
+                progressDialog.Dispatcher.Invoke(() =>
+                {
+                    MessageBox.Show($"Failed to move:\n{ex.Message}", "Move Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                });
+                return false;
+            }
+        });
+
+        progressDialog.Show();
+
+        var success = await transferTask;
+
+        progressDialog.SetCompleted(success);
+
+        if (success)
+        {
+            StatusMessage = $"Moved {count} item(s)";
+            await LoadDirectoryAsync();
+            await targetPanel.LoadDirectoryAsync();
+        }
+        else
+        {
+            StatusMessage = "Move cancelled or failed";
         }
     }
 

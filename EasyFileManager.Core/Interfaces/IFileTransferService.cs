@@ -15,7 +15,9 @@ public interface IFileTransferService
         IEnumerable<string> sourcePaths,
         string destinationDirectory,
         IProgress<FileTransferProgress>? progress = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        Func<FileConflictInfo, Task<FileConflictResolution>>? conflictResolver = null);
+
 
     /// <summary>
     /// Moves files/folders from source to destination
@@ -24,7 +26,8 @@ public interface IFileTransferService
         IEnumerable<string> sourcePaths,
         string destinationDirectory,
         IProgress<FileTransferProgress>? progress = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        Func<FileConflictInfo, Task<FileConflictResolution>>? conflictResolver = null);
 
     /// <summary>
     /// Calculates total size of files/folders

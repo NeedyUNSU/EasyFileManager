@@ -53,6 +53,8 @@ public partial class MainViewModel : ViewModelBase
         _leftPanel.CurrentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         _rightPanel.CurrentPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
 
+        _activePanel = _leftPanel;
+
         _logger.LogInformation("MainViewModel initialized with theme: {Theme}", _isDarkTheme ? "Dark" : "Light");
     }
 
@@ -64,12 +66,9 @@ public partial class MainViewModel : ViewModelBase
         var paletteHelper = new PaletteHelper();
         var theme = paletteHelper.GetTheme();
         IsDarkTheme = theme.GetBaseTheme() == BaseTheme.Dark;
-
         IsDarkTheme = !IsDarkTheme;
-
         theme.SetBaseTheme(IsDarkTheme ? BaseTheme.Dark : BaseTheme.Light);
         paletteHelper.SetTheme(theme);
-
         _logger.LogInformation("Theme toggled to: {Theme}", IsDarkTheme ? "Dark" : "Light");
     }
 

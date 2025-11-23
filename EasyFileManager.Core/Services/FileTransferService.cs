@@ -15,23 +15,31 @@ public class FileTransferService : IFileTransferService
     private readonly IAppLogger<FileTransferService> _logger;
     private const int BufferSize = 81920; // 80KB buffer
 
-    public FileTransferService(IAppLogger<FileTransferService> logger)
-    {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    }
-
-    // ✅ Helper class dla tracking progress (zamiast ref parameters)
+    // Helper class dla tracking progress
     private class TransferProgress
     {
         public long TransferredBytes { get; set; }
         public int ProcessedFiles { get; set; }
     }
 
+    // Helper class dla conflict resolution state
+    private class ConflictResolutionState
+    {
+        public ConflictAction? GlobalAction { get; set; }
+        public bool ApplyToAll { get; set; }
+    }
+
+    public FileTransferService(IAppLogger<FileTransferService> logger)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
     public async Task CopyAsync(
         IEnumerable<string> sourcePaths,
         string destinationDirectory,
         IProgress<FileTransferProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<FileConflictInfo, Task<FileConflictResolution>>? conflictResolver = null)
     {
         _logger.LogInformation("Starting copy operation to {Destination}", destinationDirectory);
 
@@ -40,6 +48,7 @@ public class FileTransferService : IFileTransferService
         var totalFiles = await CountFilesAsync(paths, cancellationToken);
 
         var tracker = new TransferProgress();
+        var conflictState = new ConflictResolutionState(); // ✅ Create conflict state
 
         foreach (var sourcePath in paths)
         {
@@ -54,6 +63,8 @@ public class FileTransferService : IFileTransferService
                     totalBytes,
                     totalFiles,
                     progress,
+                    conflictResolver,
+                    conflictState,
                     cancellationToken);
             }
             else if (Directory.Exists(sourcePath))
@@ -65,6 +76,8 @@ public class FileTransferService : IFileTransferService
                     totalBytes,
                     totalFiles,
                     progress,
+                    conflictResolver,
+                    conflictState,
                     cancellationToken);
             }
         }
@@ -76,12 +89,13 @@ public class FileTransferService : IFileTransferService
         IEnumerable<string> sourcePaths,
         string destinationDirectory,
         IProgress<FileTransferProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<FileConflictInfo, Task<FileConflictResolution>>? conflictResolver = null)
     {
         _logger.LogInformation("Starting move operation to {Destination}", destinationDirectory);
 
-        // First copy
-        await CopyAsync(sourcePaths, destinationDirectory, progress, cancellationToken);
+        // First copy (with conflict handling)
+        await CopyAsync(sourcePaths, destinationDirectory, progress, cancellationToken, conflictResolver);
 
         // Then delete originals
         foreach (var sourcePath in sourcePaths)
@@ -141,15 +155,43 @@ public class FileTransferService : IFileTransferService
         long totalBytes,
         int totalFiles,
         IProgress<FileTransferProgress>? progress,
+        Func<FileConflictInfo, Task<FileConflictResolution>>? conflictResolver,
+        ConflictResolutionState conflictState,
         CancellationToken cancellationToken)
     {
         var fileName = Path.GetFileName(sourceFile);
         var destFile = Path.Combine(destinationDirectory, fileName);
 
-        // Handle conflicts
-        destFile = GetUniqueFileName(destFile);
-
         Directory.CreateDirectory(destinationDirectory);
+
+        // ✅ Handle conflicts
+        if (File.Exists(destFile))
+        {
+            var resolution = conflictState.ApplyToAll && conflictState.GlobalAction.HasValue
+                ? conflictState.GlobalAction.Value
+                : await ResolveConflictAsync(sourceFile, destFile, conflictResolver, conflictState);
+
+            switch (resolution)
+            {
+                case ConflictAction.Skip:
+                    _logger.LogDebug("Skipping file: {Path}", sourceFile);
+                    tracker.ProcessedFiles++;
+                    return;
+
+                case ConflictAction.Overwrite:
+                    _logger.LogDebug("Overwriting file: {Path}", destFile);
+                    File.Delete(destFile);
+                    break;
+
+                case ConflictAction.Rename:
+                    destFile = GetUniqueFileName(destFile);
+                    _logger.LogDebug("Renaming to: {Path}", destFile);
+                    break;
+
+                case ConflictAction.Cancel:
+                    throw new OperationCanceledException("User cancelled operation");
+            }
+        }
 
         var fileInfo = new FileInfo(sourceFile);
         var fileSize = fileInfo.Length;
@@ -196,6 +238,8 @@ public class FileTransferService : IFileTransferService
         long totalBytes,
         int totalFiles,
         IProgress<FileTransferProgress>? progress,
+        Func<FileConflictInfo, Task<FileConflictResolution>>? conflictResolver,
+        ConflictResolutionState conflictState,
         CancellationToken cancellationToken)
     {
         var dirName = Path.GetFileName(sourceDirectory);
@@ -207,15 +251,60 @@ public class FileTransferService : IFileTransferService
         foreach (var file in Directory.GetFiles(sourceDirectory))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await CopyFileAsync(file, destDir, tracker, totalBytes, totalFiles, progress, cancellationToken);
+            await CopyFileAsync(file, destDir, tracker, totalBytes, totalFiles, progress, conflictResolver, conflictState, cancellationToken);
         }
 
         // Copy subdirectories
         foreach (var directory in Directory.GetDirectories(sourceDirectory))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await CopyDirectoryAsync(directory, destDir, tracker, totalBytes, totalFiles, progress, cancellationToken);
+            await CopyDirectoryAsync(directory, destDir, tracker, totalBytes, totalFiles, progress, conflictResolver, conflictState, cancellationToken);
         }
+    }
+
+    private async Task<ConflictAction> ResolveConflictAsync(
+        string sourceFile,
+        string destFile,
+        Func<FileConflictInfo, Task<FileConflictResolution>>? conflictResolver,
+        ConflictResolutionState conflictState)
+    {
+        // If no resolver provided, default to rename
+        if (conflictResolver == null)
+        {
+            return ConflictAction.Rename;
+        }
+
+        var sourceInfo = new FileInfo(sourceFile);
+        var destInfo = new FileInfo(destFile);
+
+        var conflict = new FileConflictInfo
+        {
+            SourcePath = sourceFile,
+            DestinationPath = destFile,
+            FileName = Path.GetFileName(sourceFile),
+            SourceSize = sourceInfo.Length,
+            DestinationSize = destInfo.Length,
+            SourceModified = sourceInfo.LastWriteTime,
+            DestinationModified = destInfo.LastWriteTime
+        };
+
+        var resolution = await conflictResolver(conflict);
+
+        System.Diagnostics.Debug.WriteLine($">>> ResolveConflictAsync received: {resolution.Action}");
+
+        if (resolution.Action == ConflictAction.Cancel)
+        {
+            System.Diagnostics.Debug.WriteLine(">>> User cancelled - throwing OperationCanceledException");
+            throw new OperationCanceledException("User cancelled operation due to conflict");
+        }
+
+        if (resolution.ApplyToAll)
+        {
+            conflictState.ApplyToAll = true;
+            conflictState.GlobalAction = resolution.Action;
+        }
+
+        return resolution.Action;
     }
 
     private async Task<long> GetDirectorySizeAsync(string directoryPath, CancellationToken cancellationToken)

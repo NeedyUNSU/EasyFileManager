@@ -13,7 +13,9 @@
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel, IsDesignTimeCreatable=False}"
         Title="Easy File Manager" 
         Height="700" 
-        Width="1200"
+        Width="1300"
+        MinHeight="700"
+        MinWidth="1300"
         WindowStartupLocation="CenterScreen"
         Style="{StaticResource MaterialDesignWindow}"
         Background="{DynamicResource MaterialDesignPaper}"
@@ -22,20 +24,28 @@
     <Grid>
 
         <Grid.InputBindings>
-            <KeyBinding Key="F" Modifiers="Ctrl+Shift" 
-                    Command="{Binding RightPanel.ShowFilterCommand}"/>
-            <KeyBinding Key="Escape"
-                    Command="{Binding RightPanel.HideFilterCommand}"/>
+            <!-- Filter -->
             <KeyBinding Key="F" Modifiers="Ctrl" 
-                    Command="{Binding LeftPanel.ShowFilterCommand}"/>
-            <KeyBinding Key="Escape"
-                    Command="{Binding LeftPanel.HideFilterCommand}"/>
-            <KeyBinding Key="F5" Command="{Binding LeftPanel.LoadDirectoryCommand}"/>
-            <KeyBinding Key="F6" Command="{Binding RightPanel.LoadDirectoryCommand}"/>
-            <KeyBinding Key="Delete" Command="{Binding LeftPanel.DeleteItemCommand}" 
-                    CommandParameter="{Binding LeftPanel.SelectedItem}"/>
-            <KeyBinding Key="F2" Command="{Binding LeftPanel.RenameItemCommand}" 
-                    CommandParameter="{Binding LeftPanel.SelectedItem}"/>
+                Command="{Binding ActivePanel.ShowFilterCommand}"/>
+            <KeyBinding Key="Escape" 
+                Command="{Binding ActivePanel.HideFilterCommand}"/>
+
+            <!-- Copy/Move -->
+            <KeyBinding Key="F5" 
+                Command="{Binding ActivePanel.CopyToTargetPanelCommand}"/>
+            <KeyBinding Key="F6" 
+                Command="{Binding ActivePanel.MoveToTargetPanelCommand}"/>
+
+            <!-- Refresh -->
+            <KeyBinding Key="R" Modifiers="Ctrl" 
+                Command="{Binding ActivePanel.LoadDirectoryCommand}"/>
+
+            <!-- Delete/Rename -->
+            <KeyBinding Key="Delete" 
+                Command="{Binding ActivePanel.DeleteItemCommand}"/>
+            <KeyBinding Key="F2" 
+                Command="{Binding ActivePanel.RenameItemCommand}" 
+                CommandParameter="{Binding ActivePanel.SelectedItem}"/>
         </Grid.InputBindings>
 
         <Grid.RowDefinitions>
@@ -67,6 +77,41 @@
                 <StackPanel Orientation="Horizontal" 
             HorizontalAlignment="Right"
             DockPanel.Dock="Right">
+                    <MenuItem Header="Open" 
+          Command="{Binding OpenItemCommand}"
+          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                        <MenuItem.Icon>
+                            <materialDesign:PackIcon Kind="FolderOpen"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+
+                    <Separator/>
+
+                    <!-- ✅ DODAJ Copy/Move -->
+                    <MenuItem Header="Copy to other panel (F5)" 
+          Command="{Binding CopyToTargetPanelCommand}">
+                        <MenuItem.Icon>
+                            <materialDesign:PackIcon Kind="ContentCopy"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+
+                    <MenuItem Header="Move to other panel (F6)" 
+          Command="{Binding MoveToTargetPanelCommand}">
+                        <MenuItem.Icon>
+                            <materialDesign:PackIcon Kind="FileMove"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+
+                    <Separator/>
+
+                    <MenuItem Header="Copy" 
+          Command="{Binding CopyItemCommand}"
+          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                        <MenuItem.Icon>
+                            <materialDesign:PackIcon Kind="ContentCopy"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+
                     <ToggleButton Style="{StaticResource MaterialDesignActionToggleButton}"
                         IsChecked="{Binding IsDarkTheme}"
                         Command="{Binding ToggleThemeCommand}"
@@ -112,7 +157,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- Left Panel -->
-            <materialDesign:Card Grid.Column="0" DataContext="{Binding LeftPanel}">
+            <materialDesign:Card Grid.Column="0" DataContext="{Binding LeftPanel}" GotFocus="LeftPanel_GotFocus">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -279,14 +324,17 @@
 
                     <!-- Left Panel Content -->
                     <ListView Grid.Row="1" 
-          Margin="8"
-          ItemsSource="{Binding Items}"
-          SelectedItem="{Binding SelectedItem}"
-          Style="{StaticResource MaterialDesignListView}"
-          ItemContainerStyle="{StaticResource AlternatingListViewItemStyle}"
-          AlternationCount="2"
-          behaviors:SortIndicatorHelper.SortColumn="{Binding SortColumn}"
-          behaviors:SortIndicatorHelper.SortDirection="{Binding SortDirection}">
+                        Margin="8"
+                        SelectionMode="Extended"
+                        SelectionChanged="ListView_SelectionChanged"
+                        ItemsSource="{Binding Items}"
+                        SelectedItem="{Binding SelectedItem}"
+                        GotFocus="ListView_GotFocus"
+                        Style="{StaticResource MaterialDesignListView}"
+                        ItemContainerStyle="{StaticResource AlternatingListViewItemStyle}"
+                        AlternationCount="2"
+                        behaviors:SortIndicatorHelper.SortColumn="{Binding SortColumn}"
+                        behaviors:SortIndicatorHelper.SortDirection="{Binding SortDirection}">
 
                         <ListView.ContextMenu>
                             <ContextMenu>
@@ -327,8 +375,7 @@
                                 </MenuItem>
 
                                 <MenuItem Header="Delete" 
-                      Command="{Binding DeleteItemCommand}"
-                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                      Command="{Binding DeleteItemCommand}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="Delete" Foreground="Red"/>
                                     </MenuItem.Icon>
@@ -440,7 +487,7 @@
                           Background="{DynamicResource MaterialDesignDivider}"/>
 
             <!-- Right Panel -->
-            <materialDesign:Card Grid.Column="2" DataContext="{Binding RightPanel}">
+            <materialDesign:Card Grid.Column="2" DataContext="{Binding RightPanel}" GotFocus="RightPanel_GotFocus">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -604,20 +651,23 @@
 
                     <!-- Right Panel Content -->
                     <ListView Grid.Row="1" 
-          Margin="8"
-          ItemsSource="{Binding Items}"
-          SelectedItem="{Binding SelectedItem}"
-          Style="{StaticResource MaterialDesignListView}"
-          ItemContainerStyle="{StaticResource AlternatingListViewItemStyle}"
-          AlternationCount="2"
-          behaviors:SortIndicatorHelper.SortColumn="{Binding SortColumn}"
-          behaviors:SortIndicatorHelper.SortDirection="{Binding SortDirection}">
+                        Margin="8"
+                        SelectionMode="Extended"
+                        SelectionChanged="ListView_SelectionChanged"
+                        ItemsSource="{Binding Items}"
+                        SelectedItem="{Binding SelectedItem}"
+                        GotFocus="ListView_GotFocus"
+                        Style="{StaticResource MaterialDesignListView}"
+                        ItemContainerStyle="{StaticResource AlternatingListViewItemStyle}"
+                        AlternationCount="2"
+                        behaviors:SortIndicatorHelper.SortColumn="{Binding SortColumn}"
+                        behaviors:SortIndicatorHelper.SortDirection="{Binding SortDirection}">
 
                         <ListView.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="Open" 
-                      Command="{Binding OpenItemCommand}"
-                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+Command="{Binding OpenItemCommand}"
+CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="FolderOpen"/>
                                     </MenuItem.Icon>
@@ -626,16 +676,16 @@
                                 <Separator/>
 
                                 <MenuItem Header="Copy" 
-                      Command="{Binding CopyItemCommand}"
-                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+Command="{Binding CopyItemCommand}"
+CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="ContentCopy"/>
                                     </MenuItem.Icon>
                                 </MenuItem>
 
                                 <MenuItem Header="Copy Path" 
-                      Command="{Binding CopyPathCommand}"
-                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+Command="{Binding CopyPathCommand}"
+CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="LinkVariant"/>
                                     </MenuItem.Icon>
@@ -644,16 +694,15 @@
                                 <Separator/>
 
                                 <MenuItem Header="Rename" 
-                      Command="{Binding RenameItemCommand}"
-                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+Command="{Binding RenameItemCommand}"
+CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="Pencil"/>
                                     </MenuItem.Icon>
                                 </MenuItem>
 
                                 <MenuItem Header="Delete" 
-                      Command="{Binding DeleteItemCommand}"
-                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+Command="{Binding DeleteItemCommand}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="Delete" Foreground="Red"/>
                                     </MenuItem.Icon>
@@ -662,8 +711,8 @@
                                 <Separator/>
 
                                 <MenuItem Header="Properties" 
-                      Command="{Binding ShowPropertiesCommand}"
-                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+Command="{Binding ShowPropertiesCommand}"
+CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="Information"/>
                                     </MenuItem.Icon>
