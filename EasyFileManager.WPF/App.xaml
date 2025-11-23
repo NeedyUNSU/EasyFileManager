@@ -23,6 +23,7 @@
             <converters:DriveTypeToIconConverter x:Key="DriveTypeToIconConverter"/>
             <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
             <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+            <converters:InverseCountToVisibilityConverter x:Key="InverseCountToVisibilityConverter"/>
 
             <!-- Custom Styles -->
             <Style x:Key="CustomGridViewColumnHeader" TargetType="GridViewColumnHeader">

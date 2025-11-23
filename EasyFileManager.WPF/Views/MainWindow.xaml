@@ -24,6 +24,11 @@
     <Grid>
 
         <Grid.InputBindings>
+
+            <!-- Bookmarks -->
+            <KeyBinding Key="D" Modifiers="Ctrl" 
+            Command="{Binding ToggleBookmarksFlyoutCommand}"/>
+
             <!-- Filter -->
             <KeyBinding Key="F" Modifiers="Ctrl" 
                 Command="{Binding ActivePanel.ShowFilterCommand}"/>
@@ -53,10 +58,7 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        
-        <GridViewColumnHeader Content="Name" 
-                      Tag="Name"
-                      Style="{StaticResource CustomGridViewColumnHeader}"/>
+
         <!-- Top Bar -->
         <materialDesign:ColorZone Grid.Row="0" 
                                    Mode="PrimaryMid" 
@@ -75,53 +77,56 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" 
-            HorizontalAlignment="Right"
-            DockPanel.Dock="Right">
-                    <MenuItem Header="Open" 
-          Command="{Binding OpenItemCommand}"
-          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                        <MenuItem.Icon>
-                            <materialDesign:PackIcon Kind="FolderOpen"/>
-                        </MenuItem.Icon>
-                    </MenuItem>
-
-                    <Separator/>
-
-                    <!-- ✅ DODAJ Copy/Move -->
-                    <MenuItem Header="Copy to other panel (F5)" 
-          Command="{Binding CopyToTargetPanelCommand}">
-                        <MenuItem.Icon>
-                            <materialDesign:PackIcon Kind="ContentCopy"/>
-                        </MenuItem.Icon>
-                    </MenuItem>
-
-                    <MenuItem Header="Move to other panel (F6)" 
-          Command="{Binding MoveToTargetPanelCommand}">
-                        <MenuItem.Icon>
-                            <materialDesign:PackIcon Kind="FileMove"/>
-                        </MenuItem.Icon>
-                    </MenuItem>
-
-                    <Separator/>
-
-                    <MenuItem Header="Copy" 
-          Command="{Binding CopyItemCommand}"
-          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                        <MenuItem.Icon>
-                            <materialDesign:PackIcon Kind="ContentCopy"/>
-                        </MenuItem.Icon>
-                    </MenuItem>
+                            HorizontalAlignment="Right"
+                            DockPanel.Dock="Right">
 
                     <ToggleButton Style="{StaticResource MaterialDesignActionToggleButton}"
-                        IsChecked="{Binding IsDarkTheme}"
-                        Command="{Binding ToggleThemeCommand}"
-                        Foreground="{DynamicResource MaterialDesignBody}"
-                        ToolTip="Toggle Dark/Light Theme"
-                        Margin="8,0">
+              IsChecked="{Binding DataContext.IsBookmarksFlyoutOpen, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}"
+              Foreground="{DynamicResource MaterialDesignBody}"
+              ToolTip="Bookmarks (Ctrl+D)"
+              Margin="8,0">
+                        <materialDesign:PackIcon Kind="Bookmark" Width="20" Height="20"/>
+                    </ToggleButton>
+
+                    <!-- Vertical separator -->
+                    <Border Width="1" 
+            Height="24"
+            Background="{DynamicResource MaterialDesignDivider}"
+            Margin="8,0"
+            Opacity="0.5"/>
+
+                    <!-- Copy to other panel -->
+                    <Button Style="{StaticResource MaterialDesignIconButton}"
+                            ToolTip="Copy to other panel (F5)"
+                            Command="{Binding DataContext.ActivePanel.CopyToTargetPanelCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Foreground="{DynamicResource MaterialDesignBody}"
+                            Margin="8,0">
+                        <materialDesign:PackIcon Kind="ContentCopy" Width="20" Height="20"/>
+                    </Button>
+
+                    <!-- Move to other panel -->
+                    <Button Style="{StaticResource MaterialDesignIconButton}"
+                            ToolTip="Move to other panel (F6)"
+                            Command="{Binding DataContext.ActivePanel.MoveToTargetPanelCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Foreground="{DynamicResource MaterialDesignBody}"
+                            Margin="8,0">
+                        <materialDesign:PackIcon Kind="FileMove" Width="20" Height="20"/>
+                    </Button>
+
+                    <Separator Margin="8,0"
+                               Height="24"/>
+
+                    <!-- Theme toggle -->
+                    <ToggleButton Style="{StaticResource MaterialDesignActionToggleButton}"
+                                  IsChecked="{Binding DataContext.IsDarkTheme, RelativeSource={RelativeSource AncestorType=Window}}"
+                                  Command="{Binding DataContext.ToggleThemeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                  Foreground="{DynamicResource MaterialDesignBody}"
+                                  ToolTip="Toggle Dark/Light Theme"
+                                  Margin="8,0">
                         <ToggleButton.Content>
                             <materialDesign:PackIcon Kind="WeatherNight"/>
                         </ToggleButton.Content>
-                        
+
                         <materialDesign:ToggleButtonAssist.OnContent>
                             <materialDesign:PackIcon Kind="WeatherSunny"/>
                         </materialDesign:ToggleButtonAssist.OnContent>
@@ -129,19 +134,19 @@
 
                     <!-- Settings -->
                     <Button Style="{StaticResource MaterialDesignIconButton}"
-                        ToolTip="Settings"
-                        Foreground="{DynamicResource MaterialDesignBody}"
-                        Margin="8,0"
-                        Command="{Binding ShowSettingsCommand}">
+                            ToolTip="Settings"
+                            Foreground="{DynamicResource MaterialDesignBody}"
+                            Margin="8,0"
+                            Command="{Binding DataContext.ShowSettingsCommand, RelativeSource={RelativeSource AncestorType=Window}}">
                         <materialDesign:PackIcon Kind="Cog" Width="20" Height="20"/>
                     </Button>
 
                     <!-- About -->
                     <Button Style="{StaticResource MaterialDesignIconButton}"
-                        ToolTip="About"
-                        Foreground="{DynamicResource MaterialDesignBody}"
-                        Margin="8,0"
-                        Command="{Binding ShowAboutCommand}">
+                            ToolTip="About"
+                            Foreground="{DynamicResource MaterialDesignBody}"
+                            Margin="8,0"
+                            Command="{Binding DataContext.ShowAboutCommand, RelativeSource={RelativeSource AncestorType=Window}}">
                         <materialDesign:PackIcon Kind="Information" Width="20" Height="20"/>
                     </Button>
                 </StackPanel>
@@ -157,7 +162,13 @@
             </Grid.ColumnDefinitions>
 
             <!-- Left Panel -->
-            <materialDesign:Card Grid.Column="0" DataContext="{Binding LeftPanel}" GotFocus="LeftPanel_GotFocus">
+            <materialDesign:Card Grid.Column="0" DataContext="{Binding LeftPanel}">
+                <i:Interaction.Behaviors>
+                    <behaviors:ActivePanelBehavior 
+                        ViewModel="{Binding}"
+                        MainViewModel="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                </i:Interaction.Behaviors>
+
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -165,38 +176,38 @@
                     </Grid.RowDefinitions>
 
                     <!-- Left Panel Header -->
-                    <Grid Grid.Row="0" x:Name="LeftPanelGrid">
+                    <Grid Grid.Row="0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <!-- Wiersz 1: Nawigacja (istniejący kod) -->
+                        <!-- Row 1: Navigation -->
                         <Border Grid.Row="0"
-            Background="{DynamicResource MaterialDesignToolBarBackground}"
-            Padding="8">
+                                Background="{DynamicResource MaterialDesignToolBarBackground}"
+                                Padding="8">
                             <DockPanel>
-                                <!-- Przyciski po prawej -->
+                                <!-- Buttons on right -->
                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                                    <!-- ✅ DODAJ przycisk Filter -->
+                                    <!-- Filter button -->
                                     <Button Style="{StaticResource MaterialDesignIconButton}"
-                        ToolTip="Filter (Ctrl+F)"
-                        Command="{Binding ShowFilterCommand}"
-                        Margin="4,0">
+                                            ToolTip="Filter (Ctrl+F)"
+                                            Command="{Binding ShowFilterCommand}"
+                                            Margin="4,0">
                                         <materialDesign:PackIcon Kind="Magnify"/>
                                     </Button>
 
                                     <Button Style="{StaticResource MaterialDesignIconButton}"
-                        ToolTip="Refresh"
-                        Command="{Binding LoadDirectoryCommand}"
-                        Margin="4,0">
+                                            ToolTip="Refresh"
+                                            Command="{Binding LoadDirectoryCommand}"
+                                            Margin="4,0">
                                         <materialDesign:PackIcon Kind="Refresh"/>
                                     </Button>
 
                                     <Button Style="{StaticResource MaterialDesignIconButton}"
-                        ToolTip="Go Up"
-                        Command="{Binding NavigateUpCommand}"
-                        Margin="4,0">
+                                            ToolTip="Go Up"
+                                            Command="{Binding NavigateUpCommand}"
+                                            Margin="4,0">
                                         <materialDesign:PackIcon Kind="ArrowUp"/>
                                     </Button>
                                 </StackPanel>
@@ -204,41 +215,41 @@
                                 <!-- Drive selector + Path -->
                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
                                     <ComboBox Width="120"
-                          ItemsSource="{Binding AvailableDrives}"
-                          SelectedItem="{Binding SelectedDrive}"
-                          materialDesign:HintAssist.Hint="Drive"
-                          Style="{StaticResource MaterialDesignFilledComboBox}"
-                          VerticalAlignment="Center"
-                          Margin="0,0,8,0">
+                                              ItemsSource="{Binding AvailableDrives}"
+                                              SelectedItem="{Binding SelectedDrive}"
+                                              materialDesign:HintAssist.Hint="Drive"
+                                              Style="{StaticResource MaterialDesignFilledComboBox}"
+                                              VerticalAlignment="Center"
+                                              Margin="0,0,8,0">
                                         <ComboBox.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel Orientation="Horizontal">
                                                     <materialDesign:PackIcon Kind="{Binding DriveType, Converter={StaticResource DriveTypeToIconConverter}}"
-                                                         Width="16"
-                                                         Height="16"
-                                                         VerticalAlignment="Center"
-                                                         Margin="0,0,6,0"/>
+                                                                             Width="16"
+                                                                             Height="16"
+                                                                             VerticalAlignment="Center"
+                                                                             Margin="0,0,6,0"/>
                                                     <TextBlock Text="{Binding Name, Mode=OneWay}" 
-                                           VerticalAlignment="Center"/>
+                                                               VerticalAlignment="Center"/>
                                                 </StackPanel>
                                             </DataTemplate>
                                         </ComboBox.ItemTemplate>
                                     </ComboBox>
 
                                     <Grid Width="300" VerticalAlignment="Center">
-                                        <!-- Breadcrumb mode (domyślny) -->
+                                        <!-- Breadcrumb mode (default) -->
                                         <Border Background="{DynamicResource MaterialDesignTextFieldBoxBackground}"
-            CornerRadius="4"
-            Padding="8,4"
-            Visibility="{Binding IsPathEditable, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                                CornerRadius="4"
+                                                Padding="8,4"
+                                                Visibility="{Binding IsPathEditable, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
                                             <DockPanel>
-                                                <!-- Przycisk Edit (przełącz na TextBox) -->
+                                                <!-- Edit button -->
                                                 <Button Style="{StaticResource MaterialDesignIconButton}"
-                    Command="{Binding TogglePathEditCommand}"
-                    ToolTip="Edit path"
-                    Width="20"
-                    Height="20"
-                    DockPanel.Dock="Right">
+                                                        Command="{Binding TogglePathEditCommand}"
+                                                        ToolTip="Edit path"
+                                                        Width="20"
+                                                        Height="20"
+                                                        DockPanel.Dock="Right">
                                                     <materialDesign:PackIcon Kind="Pencil" Width="14" Height="14"/>
                                                 </Button>
 
@@ -249,10 +260,10 @@
 
                                         <!-- Edit mode (TextBox) -->
                                         <TextBox Text="{Binding CurrentPath, UpdateSourceTrigger=PropertyChanged}"
-             materialDesign:HintAssist.Hint="Path"
-             Style="{StaticResource MaterialDesignFilledTextBox}"
-             Visibility="{Binding IsPathEditable, Converter={StaticResource BooleanToVisibilityConverter}}"
-             x:Name="PathTextBox">
+                                                 materialDesign:HintAssist.Hint="Path"
+                                                 Style="{StaticResource MaterialDesignFilledTextBox}"
+                                                 Visibility="{Binding IsPathEditable, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                 x:Name="PathTextBox">
                                             <TextBox.InputBindings>
                                                 <KeyBinding Key="Enter" Command="{Binding LoadDirectoryCommand}"/>
                                                 <KeyBinding Key="Escape" Command="{Binding TogglePathEditCommand}"/>
@@ -263,54 +274,54 @@
 
                                 <!-- Loading indicator -->
                                 <ProgressBar IsIndeterminate="True"
-                         Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"
-                         Height="4"
-                         VerticalAlignment="Bottom"
-                         Margin="0,4,0,0"/>
+                                             Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                             Height="4"
+                                             VerticalAlignment="Bottom"
+                                             Margin="0,4,0,0"/>
                             </DockPanel>
                         </Border>
 
-                        <!-- ✅ Wiersz 2: Filter box (pokazuje się po Ctrl+F) -->
+                        <!-- Row 2: Filter box -->
                         <Border Grid.Row="1"
-            Background="{DynamicResource MaterialDesignCardBackground}"
-            BorderBrush="{DynamicResource PrimaryHueMidBrush}"
-            BorderThickness="0,2,0,0"
-            Padding="8"
-            Visibility="{Binding IsFilterVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                Background="{DynamicResource MaterialDesignCardBackground}"
+                                BorderBrush="{DynamicResource PrimaryHueMidBrush}"
+                                BorderThickness="0,2,0,0"
+                                Padding="8"
+                                Visibility="{Binding IsFilterVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <DockPanel>
-                                <!-- Przycisk X (zamknij) -->
+                                <!-- Close button -->
                                 <Button Style="{StaticResource MaterialDesignIconButton}"
-                    Command="{Binding HideFilterCommand}"
-                    ToolTip="Close filter (Esc)"
-                    DockPanel.Dock="Right"
-                    Margin="4,0,0,0">
+                                        Command="{Binding HideFilterCommand}"
+                                        ToolTip="Close filter (Esc)"
+                                        DockPanel.Dock="Right"
+                                        Margin="4,0,0,0">
                                     <materialDesign:PackIcon Kind="Close"/>
                                 </Button>
 
-                                <!-- Przycisk Clear -->
+                                <!-- Clear button -->
                                 <Button Style="{StaticResource MaterialDesignIconButton}"
-                    Command="{Binding ClearFilterCommand}"
-                    ToolTip="Clear filter"
-                    DockPanel.Dock="Right"
-                    Margin="4,0,0,0">
+                                        Command="{Binding ClearFilterCommand}"
+                                        ToolTip="Clear filter"
+                                        DockPanel.Dock="Right"
+                                        Margin="4,0,0,0">
                                     <materialDesign:PackIcon Kind="FilterRemove"/>
                                 </Button>
 
-                                <!-- Info o wynikach -->
+                                <!-- Items count -->
                                 <TextBlock Text="{Binding TotalItems, StringFormat='{}{0} items'}"
-                       VerticalAlignment="Center"
-                       Margin="8,0"
-                       FontSize="11"
-                       Opacity="0.7"
-                       DockPanel.Dock="Right"/>
+                                           VerticalAlignment="Center"
+                                           Margin="8,0"
+                                           FontSize="11"
+                                           Opacity="0.7"
+                                           DockPanel.Dock="Right"/>
 
                                 <!-- Filter TextBox -->
                                 <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
-         materialDesign:HintAssist.Hint="Filter files..."
-         Style="{StaticResource MaterialDesignFilledTextBox}"
-         VerticalAlignment="Center"
-         materialDesign:TextFieldAssist.HasLeadingIcon="True"
-         materialDesign:TextFieldAssist.LeadingIcon="Magnify">
+                                         materialDesign:HintAssist.Hint="Filter files..."
+                                         Style="{StaticResource MaterialDesignFilledTextBox}"
+                                         VerticalAlignment="Center"
+                                         materialDesign:TextFieldAssist.HasLeadingIcon="True"
+                                         materialDesign:TextFieldAssist.LeadingIcon="Magnify">
                                     <i:Interaction.Behaviors>
                                         <behaviors:FocusOnVisibleBehavior/>
                                     </i:Interaction.Behaviors>
@@ -324,23 +335,22 @@
 
                     <!-- Left Panel Content -->
                     <ListView Grid.Row="1" 
-                        Margin="8"
-                        SelectionMode="Extended"
-                        SelectionChanged="ListView_SelectionChanged"
-                        ItemsSource="{Binding Items}"
-                        SelectedItem="{Binding SelectedItem}"
-                        GotFocus="ListView_GotFocus"
-                        Style="{StaticResource MaterialDesignListView}"
-                        ItemContainerStyle="{StaticResource AlternatingListViewItemStyle}"
-                        AlternationCount="2"
-                        behaviors:SortIndicatorHelper.SortColumn="{Binding SortColumn}"
-                        behaviors:SortIndicatorHelper.SortDirection="{Binding SortDirection}">
+                              Margin="8"
+                              SelectionMode="Extended"
+                              SelectionChanged="ListView_SelectionChanged"
+                              ItemsSource="{Binding Items}"
+                              SelectedItem="{Binding SelectedItem}"
+                              Style="{StaticResource MaterialDesignListView}"
+                              ItemContainerStyle="{StaticResource AlternatingListViewItemStyle}"
+                              AlternationCount="2"
+                              behaviors:SortIndicatorHelper.SortColumn="{Binding SortColumn}"
+                              behaviors:SortIndicatorHelper.SortDirection="{Binding SortDirection}">
 
                         <ListView.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="Open" 
-                      Command="{Binding OpenItemCommand}"
-                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                          Command="{Binding OpenItemCommand}"
+                                          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="FolderOpen"/>
                                     </MenuItem.Icon>
@@ -349,16 +359,16 @@
                                 <Separator/>
 
                                 <MenuItem Header="Copy" 
-                      Command="{Binding CopyItemCommand}"
-                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                          Command="{Binding CopyItemCommand}"
+                                          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="ContentCopy"/>
                                     </MenuItem.Icon>
                                 </MenuItem>
 
                                 <MenuItem Header="Copy Path" 
-                      Command="{Binding CopyPathCommand}"
-                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                          Command="{Binding CopyPathCommand}"
+                                          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="LinkVariant"/>
                                     </MenuItem.Icon>
@@ -367,15 +377,15 @@
                                 <Separator/>
 
                                 <MenuItem Header="Rename" 
-                      Command="{Binding RenameItemCommand}"
-                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                          Command="{Binding RenameItemCommand}"
+                                          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="Pencil"/>
                                     </MenuItem.Icon>
                                 </MenuItem>
 
                                 <MenuItem Header="Delete" 
-                      Command="{Binding DeleteItemCommand}">
+                                          Command="{Binding DeleteItemCommand}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="Delete" Foreground="Red"/>
                                     </MenuItem.Icon>
@@ -384,8 +394,8 @@
                                 <Separator/>
 
                                 <MenuItem Header="Properties" 
-                      Command="{Binding ShowPropertiesCommand}"
-                      CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                          Command="{Binding ShowPropertiesCommand}"
+                                          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="Information"/>
                                     </MenuItem.Icon>
@@ -400,7 +410,7 @@
 
                         <ListView.View>
                             <GridView>
-                                <!-- Column 1: Name with Icon (stretch to fill remaining space) -->
+                                <!-- Column 1: Name with Icon -->
                                 <GridViewColumn Width="250">
                                     <GridViewColumn.Header>
                                         <GridViewColumnHeader Content="Name" Tag="Name" Padding="8,4"/>
@@ -409,68 +419,68 @@
                                         <DataTemplate>
                                             <StackPanel Orientation="Horizontal" Margin="4,2">
                                                 <materialDesign:PackIcon VerticalAlignment="Center"
-                                                 Margin="0,0,8,0"
-                                                 Width="16" 
-                                                 Height="16"
-                                                 Kind="{Binding Converter={StaticResource FileEntryToIconConverter}}"/>
+                                                                         Margin="0,0,8,0"
+                                                                         Width="16" 
+                                                                         Height="16"
+                                                                         Kind="{Binding Converter={StaticResource FileEntryToIconConverter}}"/>
                                                 <TextBlock Text="{Binding Name}" 
-                                   VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis"/>
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
 
-                                <!-- Column 2: Size (auto-width based on content) -->
+                                <!-- Column 2: Size -->
                                 <GridViewColumn>
                                     <GridViewColumn.Header>
                                         <GridViewColumnHeader Content="Size" 
-                                      Tag="Size"
-                                      HorizontalContentAlignment="Right"
-                                      Padding="8,4"
-                                      MinWidth="80"/>
+                                                              Tag="Size"
+                                                              HorizontalContentAlignment="Right"
+                                                              Padding="8,4"
+                                                              MinWidth="80"/>
                                     </GridViewColumn.Header>
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding Converter={StaticResource FileEntryToSizeConverter}}" 
-                               TextAlignment="Right"
-                               VerticalAlignment="Center"
-                               Margin="8,2"
-                               MinWidth="60"/>
+                                                       TextAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       Margin="8,2"
+                                                       MinWidth="60"/>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
 
-                                <!-- Column 3: Type (auto-width) -->
+                                <!-- Column 3: Type -->
                                 <GridViewColumn>
                                     <GridViewColumn.Header>
                                         <GridViewColumnHeader Content="Type" 
-                                      Tag="Type"
-                                      Padding="8,4"
-                                      MinWidth="80"/>
+                                                              Tag="Type"
+                                                              Padding="8,4"
+                                                              MinWidth="80"/>
                                     </GridViewColumn.Header>
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding Converter={StaticResource FileEntryToTypeConverter}}" 
-                               VerticalAlignment="Center"
-                               Margin="8,2"
-                               MinWidth="50"/>
+                                                       VerticalAlignment="Center"
+                                                       Margin="8,2"
+                                                       MinWidth="50"/>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
 
-                                <!-- Column 4: Date Modified (fixed width) -->
+                                <!-- Column 4: Date Modified -->
                                 <GridViewColumn Width="140">
                                     <GridViewColumn.Header>
                                         <GridViewColumnHeader Content="Date Modified" 
-                                      Tag="LastModified"
-                                      Padding="8,4"/>
+                                                              Tag="LastModified"
+                                                              Padding="8,4"/>
                                     </GridViewColumn.Header>
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding Converter={StaticResource FileEntryToDateConverter}}" 
-                               VerticalAlignment="Center"
-                               Margin="8,2"/>
+                                                       VerticalAlignment="Center"
+                                                       Margin="8,2"/>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
@@ -487,7 +497,13 @@
                           Background="{DynamicResource MaterialDesignDivider}"/>
 
             <!-- Right Panel -->
-            <materialDesign:Card Grid.Column="2" DataContext="{Binding RightPanel}" GotFocus="RightPanel_GotFocus">
+            <materialDesign:Card Grid.Column="2" DataContext="{Binding RightPanel}">
+                <i:Interaction.Behaviors>
+                    <behaviors:ActivePanelBehavior 
+                        ViewModel="{Binding}"
+                        MainViewModel="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                </i:Interaction.Behaviors>
+
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -501,32 +517,32 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <!-- Wiersz 1: Nawigacja (istniejący kod) -->
+                        <!-- Row 1: Navigation -->
                         <Border Grid.Row="0"
-            Background="{DynamicResource MaterialDesignToolBarBackground}"
-            Padding="8">
+                                Background="{DynamicResource MaterialDesignToolBarBackground}"
+                                Padding="8">
                             <DockPanel>
-                                <!-- Przyciski po prawej -->
+                                <!-- Buttons on right -->
                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                                    <!-- ✅ DODAJ przycisk Filter -->
+                                    <!-- Filter button -->
                                     <Button Style="{StaticResource MaterialDesignIconButton}"
-                        ToolTip="Filter (Ctrl+F)"
-                        Command="{Binding ShowFilterCommand}"
-                        Margin="4,0">
+                                            ToolTip="Filter (Ctrl+F)"
+                                            Command="{Binding ShowFilterCommand}"
+                                            Margin="4,0">
                                         <materialDesign:PackIcon Kind="Magnify"/>
                                     </Button>
 
                                     <Button Style="{StaticResource MaterialDesignIconButton}"
-                        ToolTip="Refresh"
-                        Command="{Binding LoadDirectoryCommand}"
-                        Margin="4,0">
+                                            ToolTip="Refresh"
+                                            Command="{Binding LoadDirectoryCommand}"
+                                            Margin="4,0">
                                         <materialDesign:PackIcon Kind="Refresh"/>
                                     </Button>
 
                                     <Button Style="{StaticResource MaterialDesignIconButton}"
-                        ToolTip="Go Up"
-                        Command="{Binding NavigateUpCommand}"
-                        Margin="4,0">
+                                            ToolTip="Go Up"
+                                            Command="{Binding NavigateUpCommand}"
+                                            Margin="4,0">
                                         <materialDesign:PackIcon Kind="ArrowUp"/>
                                     </Button>
                                 </StackPanel>
@@ -534,41 +550,41 @@
                                 <!-- Drive selector + Path -->
                                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
                                     <ComboBox Width="120"
-                          ItemsSource="{Binding AvailableDrives}"
-                          SelectedItem="{Binding SelectedDrive}"
-                          materialDesign:HintAssist.Hint="Drive"
-                          Style="{StaticResource MaterialDesignFilledComboBox}"
-                          VerticalAlignment="Center"
-                          Margin="0,0,8,0">
+                                              ItemsSource="{Binding AvailableDrives}"
+                                              SelectedItem="{Binding SelectedDrive}"
+                                              materialDesign:HintAssist.Hint="Drive"
+                                              Style="{StaticResource MaterialDesignFilledComboBox}"
+                                              VerticalAlignment="Center"
+                                              Margin="0,0,8,0">
                                         <ComboBox.ItemTemplate>
                                             <DataTemplate>
                                                 <StackPanel Orientation="Horizontal">
                                                     <materialDesign:PackIcon Kind="{Binding DriveType, Converter={StaticResource DriveTypeToIconConverter}}"
-                                                         Width="16"
-                                                         Height="16"
-                                                         VerticalAlignment="Center"
-                                                         Margin="0,0,6,0"/>
+                                                                             Width="16"
+                                                                             Height="16"
+                                                                             VerticalAlignment="Center"
+                                                                             Margin="0,0,6,0"/>
                                                     <TextBlock Text="{Binding Name, Mode=OneWay}" 
-                                           VerticalAlignment="Center"/>
+                                                               VerticalAlignment="Center"/>
                                                 </StackPanel>
                                             </DataTemplate>
                                         </ComboBox.ItemTemplate>
                                     </ComboBox>
 
                                     <Grid Width="300" VerticalAlignment="Center">
-                                        <!-- Breadcrumb mode (domyślny) -->
+                                        <!-- Breadcrumb mode (default) -->
                                         <Border Background="{DynamicResource MaterialDesignTextFieldBoxBackground}"
-            CornerRadius="4"
-            Padding="8,4"
-            Visibility="{Binding IsPathEditable, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                                CornerRadius="4"
+                                                Padding="8,4"
+                                                Visibility="{Binding IsPathEditable, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
                                             <DockPanel>
-                                                <!-- Przycisk Edit (przełącz na TextBox) -->
+                                                <!-- Edit button -->
                                                 <Button Style="{StaticResource MaterialDesignIconButton}"
-                    Command="{Binding TogglePathEditCommand}"
-                    ToolTip="Edit path"
-                    Width="20"
-                    Height="20"
-                    DockPanel.Dock="Right">
+                                                        Command="{Binding TogglePathEditCommand}"
+                                                        ToolTip="Edit path"
+                                                        Width="20"
+                                                        Height="20"
+                                                        DockPanel.Dock="Right">
                                                     <materialDesign:PackIcon Kind="Pencil" Width="14" Height="14"/>
                                                 </Button>
 
@@ -579,10 +595,10 @@
 
                                         <!-- Edit mode (TextBox) -->
                                         <TextBox Text="{Binding CurrentPath, UpdateSourceTrigger=PropertyChanged}"
-             materialDesign:HintAssist.Hint="Path"
-             Style="{StaticResource MaterialDesignFilledTextBox}"
-             Visibility="{Binding IsPathEditable, Converter={StaticResource BooleanToVisibilityConverter}}"
-             x:Name="PathTextBox2">
+                                                 materialDesign:HintAssist.Hint="Path"
+                                                 Style="{StaticResource MaterialDesignFilledTextBox}"
+                                                 Visibility="{Binding IsPathEditable, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                 x:Name="PathTextBox2">
                                             <TextBox.InputBindings>
                                                 <KeyBinding Key="Enter" Command="{Binding LoadDirectoryCommand}"/>
                                                 <KeyBinding Key="Escape" Command="{Binding TogglePathEditCommand}"/>
@@ -593,54 +609,54 @@
 
                                 <!-- Loading indicator -->
                                 <ProgressBar IsIndeterminate="True"
-                         Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"
-                         Height="4"
-                         VerticalAlignment="Bottom"
-                         Margin="0,4,0,0"/>
+                                             Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                             Height="4"
+                                             VerticalAlignment="Bottom"
+                                             Margin="0,4,0,0"/>
                             </DockPanel>
                         </Border>
 
-                        <!-- ✅ Wiersz 2: Filter box (pokazuje się po Ctrl+F) -->
+                        <!-- Row 2: Filter box -->
                         <Border Grid.Row="1"
-            Background="{DynamicResource MaterialDesignCardBackground}"
-            BorderBrush="{DynamicResource PrimaryHueMidBrush}"
-            BorderThickness="0,2,0,0"
-            Padding="8"
-            Visibility="{Binding IsFilterVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                Background="{DynamicResource MaterialDesignCardBackground}"
+                                BorderBrush="{DynamicResource PrimaryHueMidBrush}"
+                                BorderThickness="0,2,0,0"
+                                Padding="8"
+                                Visibility="{Binding IsFilterVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <DockPanel>
-                                <!-- Przycisk X (zamknij) -->
+                                <!-- Close button -->
                                 <Button Style="{StaticResource MaterialDesignIconButton}"
-                    Command="{Binding HideFilterCommand}"
-                    ToolTip="Close filter (Esc)"
-                    DockPanel.Dock="Right"
-                    Margin="4,0,0,0">
+                                        Command="{Binding HideFilterCommand}"
+                                        ToolTip="Close filter (Esc)"
+                                        DockPanel.Dock="Right"
+                                        Margin="4,0,0,0">
                                     <materialDesign:PackIcon Kind="Close"/>
                                 </Button>
 
-                                <!-- Przycisk Clear -->
+                                <!-- Clear button -->
                                 <Button Style="{StaticResource MaterialDesignIconButton}"
-                    Command="{Binding ClearFilterCommand}"
-                    ToolTip="Clear filter"
-                    DockPanel.Dock="Right"
-                    Margin="4,0,0,0">
+                                        Command="{Binding ClearFilterCommand}"
+                                        ToolTip="Clear filter"
+                                        DockPanel.Dock="Right"
+                                        Margin="4,0,0,0">
                                     <materialDesign:PackIcon Kind="FilterRemove"/>
                                 </Button>
 
-                                <!-- Info o wynikach -->
+                                <!-- Items count -->
                                 <TextBlock Text="{Binding TotalItems, StringFormat='{}{0} items'}"
-                       VerticalAlignment="Center"
-                       Margin="8,0"
-                       FontSize="11"
-                       Opacity="0.7"
-                       DockPanel.Dock="Right"/>
+                                           VerticalAlignment="Center"
+                                           Margin="8,0"
+                                           FontSize="11"
+                                           Opacity="0.7"
+                                           DockPanel.Dock="Right"/>
 
                                 <!-- Filter TextBox -->
                                 <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
-                     materialDesign:HintAssist.Hint="Filter files..."
-                     Style="{StaticResource MaterialDesignFilledTextBox}"
-                     VerticalAlignment="Center"
-                     materialDesign:TextFieldAssist.HasLeadingIcon="True"
-                     materialDesign:TextFieldAssist.LeadingIcon="Magnify">
+                                         materialDesign:HintAssist.Hint="Filter files..."
+                                         Style="{StaticResource MaterialDesignFilledTextBox}"
+                                         VerticalAlignment="Center"
+                                         materialDesign:TextFieldAssist.HasLeadingIcon="True"
+                                         materialDesign:TextFieldAssist.LeadingIcon="Magnify">
                                     <TextBox.InputBindings>
                                         <KeyBinding Key="Esc" Command="{Binding HideFilterCommand}"/>
                                     </TextBox.InputBindings>
@@ -651,23 +667,22 @@
 
                     <!-- Right Panel Content -->
                     <ListView Grid.Row="1" 
-                        Margin="8"
-                        SelectionMode="Extended"
-                        SelectionChanged="ListView_SelectionChanged"
-                        ItemsSource="{Binding Items}"
-                        SelectedItem="{Binding SelectedItem}"
-                        GotFocus="ListView_GotFocus"
-                        Style="{StaticResource MaterialDesignListView}"
-                        ItemContainerStyle="{StaticResource AlternatingListViewItemStyle}"
-                        AlternationCount="2"
-                        behaviors:SortIndicatorHelper.SortColumn="{Binding SortColumn}"
-                        behaviors:SortIndicatorHelper.SortDirection="{Binding SortDirection}">
+                              Margin="8"
+                              SelectionMode="Extended"
+                              SelectionChanged="ListView_SelectionChanged"
+                              ItemsSource="{Binding Items}"
+                              SelectedItem="{Binding SelectedItem}"
+                              Style="{StaticResource MaterialDesignListView}"
+                              ItemContainerStyle="{StaticResource AlternatingListViewItemStyle}"
+                              AlternationCount="2"
+                              behaviors:SortIndicatorHelper.SortColumn="{Binding SortColumn}"
+                              behaviors:SortIndicatorHelper.SortDirection="{Binding SortDirection}">
 
                         <ListView.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="Open" 
-Command="{Binding OpenItemCommand}"
-CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                          Command="{Binding OpenItemCommand}"
+                                          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="FolderOpen"/>
                                     </MenuItem.Icon>
@@ -676,16 +691,16 @@ CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={Relativ
                                 <Separator/>
 
                                 <MenuItem Header="Copy" 
-Command="{Binding CopyItemCommand}"
-CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                          Command="{Binding CopyItemCommand}"
+                                          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="ContentCopy"/>
                                     </MenuItem.Icon>
                                 </MenuItem>
 
                                 <MenuItem Header="Copy Path" 
-Command="{Binding CopyPathCommand}"
-CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                          Command="{Binding CopyPathCommand}"
+                                          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="LinkVariant"/>
                                     </MenuItem.Icon>
@@ -694,15 +709,15 @@ CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={Relativ
                                 <Separator/>
 
                                 <MenuItem Header="Rename" 
-Command="{Binding RenameItemCommand}"
-CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                          Command="{Binding RenameItemCommand}"
+                                          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="Pencil"/>
                                     </MenuItem.Icon>
                                 </MenuItem>
 
                                 <MenuItem Header="Delete" 
-Command="{Binding DeleteItemCommand}">
+                                          Command="{Binding DeleteItemCommand}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="Delete" Foreground="Red"/>
                                     </MenuItem.Icon>
@@ -711,8 +726,8 @@ Command="{Binding DeleteItemCommand}">
                                 <Separator/>
 
                                 <MenuItem Header="Properties" 
-Command="{Binding ShowPropertiesCommand}"
-CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                          Command="{Binding ShowPropertiesCommand}"
+                                          CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="Information"/>
                                     </MenuItem.Icon>
@@ -727,7 +742,7 @@ CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={Relativ
 
                         <ListView.View>
                             <GridView>
-                                <!-- Column 1: Name with Icon (stretch to fill remaining space) -->
+                                <!-- Column 1: Name with Icon -->
                                 <GridViewColumn Width="250">
                                     <GridViewColumn.Header>
                                         <GridViewColumnHeader Content="Name" Tag="Name" Padding="8,4"/>
@@ -736,68 +751,68 @@ CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={Relativ
                                         <DataTemplate>
                                             <StackPanel Orientation="Horizontal" Margin="4,2">
                                                 <materialDesign:PackIcon VerticalAlignment="Center"
-                                                 Margin="0,0,8,0"
-                                                 Width="16" 
-                                                 Height="16"
-                                                 Kind="{Binding Converter={StaticResource FileEntryToIconConverter}}"/>
+                                                                         Margin="0,0,8,0"
+                                                                         Width="16" 
+                                                                         Height="16"
+                                                                         Kind="{Binding Converter={StaticResource FileEntryToIconConverter}}"/>
                                                 <TextBlock Text="{Binding Name}" 
-                                   VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis"/>
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis"/>
                                             </StackPanel>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
 
-                                <!-- Column 2: Size (auto-width based on content) -->
+                                <!-- Column 2: Size -->
                                 <GridViewColumn>
                                     <GridViewColumn.Header>
                                         <GridViewColumnHeader Content="Size" 
-                                      Tag="Size"
-                                      HorizontalContentAlignment="Right"
-                                      Padding="8,4"
-                                      MinWidth="80"/>
+                                                              Tag="Size"
+                                                              HorizontalContentAlignment="Right"
+                                                              Padding="8,4"
+                                                              MinWidth="80"/>
                                     </GridViewColumn.Header>
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding Converter={StaticResource FileEntryToSizeConverter}}" 
-                               TextAlignment="Right"
-                               VerticalAlignment="Center"
-                               Margin="8,2"
-                               MinWidth="60"/>
+                                                       TextAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       Margin="8,2"
+                                                       MinWidth="60"/>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
 
-                                <!-- Column 3: Type (auto-width) -->
+                                <!-- Column 3: Type -->
                                 <GridViewColumn>
                                     <GridViewColumn.Header>
                                         <GridViewColumnHeader Content="Type" 
-                                      Tag="Type"
-                                      Padding="8,4"
-                                      MinWidth="80"/>
+                                                              Tag="Type"
+                                                              Padding="8,4"
+                                                              MinWidth="80"/>
                                     </GridViewColumn.Header>
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding Converter={StaticResource FileEntryToTypeConverter}}" 
-                               VerticalAlignment="Center"
-                               Margin="8,2"
-                               MinWidth="50"/>
+                                                       VerticalAlignment="Center"
+                                                       Margin="8,2"
+                                                       MinWidth="50"/>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
 
-                                <!-- Column 4: Date Modified (fixed width) -->
+                                <!-- Column 4: Date Modified -->
                                 <GridViewColumn Width="140">
                                     <GridViewColumn.Header>
                                         <GridViewColumnHeader Content="Date Modified" 
-                                      Tag="LastModified"
-                                      Padding="8,4"/>
+                                                              Tag="LastModified"
+                                                              Padding="8,4"/>
                                     </GridViewColumn.Header>
                                     <GridViewColumn.CellTemplate>
                                         <DataTemplate>
                                             <TextBlock Text="{Binding Converter={StaticResource FileEntryToDateConverter}}" 
-                               VerticalAlignment="Center"
-                               Margin="8,2"/>
+                                                       VerticalAlignment="Center"
+                                                       Margin="8,2"/>
                                         </DataTemplate>
                                     </GridViewColumn.CellTemplate>
                                 </GridViewColumn>
@@ -810,30 +825,58 @@ CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={Relativ
 
         <!-- Status Bar -->
         <materialDesign:ColorZone Grid.Row="2" 
-                           Mode="PrimaryLight" 
-                           Padding="8">
+                                   Mode="PrimaryLight" 
+                                   Padding="8">
             <DockPanel>
                 <TextBlock Text="{Binding LeftPanel.StatusMessage}" 
-                   VerticalAlignment="Center"
-                   Style="{StaticResource MaterialDesignBody2TextBlock}"/>
+                           VerticalAlignment="Center"
+                           Style="{StaticResource MaterialDesignBody2TextBlock}"/>
 
                 <StackPanel Orientation="Horizontal" 
-                    HorizontalAlignment="Right"
-                    DockPanel.Dock="Right">
+                            HorizontalAlignment="Right"
+                            DockPanel.Dock="Right">
                     <TextBlock VerticalAlignment="Center"
-                       Margin="0,0,16,0">
-                <Run Text="Left: "/>
-                <Run Text="{Binding LeftPanel.TotalItems, Mode=OneWay}"/>
-                <Run Text=" items"/>
+                               Margin="0,0,16,0">
+                        <Run Text="Left: "/>
+                        <Run Text="{Binding LeftPanel.TotalItems, Mode=OneWay}"/>
+                        <Run Text=" items"/>
                     </TextBlock>
                     <TextBlock VerticalAlignment="Center"
-                       Margin="0,0,16,0">
-                <Run Text="Right: "/>
-                <Run Text="{Binding RightPanel.TotalItems, Mode=OneWay}"/>
-                <Run Text=" items"/>
+                               Margin="0,0,16,0">
+                        <Run Text="Right: "/>
+                        <Run Text="{Binding RightPanel.TotalItems, Mode=OneWay}"/>
+                        <Run Text=" items"/>
                     </TextBlock>
                 </StackPanel>
             </DockPanel>
         </materialDesign:ColorZone>
+
+        <!-- ✅ DODAJ TO - Bookmarks Flyout -->
+        <Border Grid.RowSpan="3"
+                HorizontalAlignment="Right"
+                Width="320"
+                Background="{DynamicResource MaterialDesignPaper}"
+                BorderBrush="{DynamicResource MaterialDesignDivider}"
+                BorderThickness="1,0,0,0"
+                Panel.ZIndex="100"
+                Visibility="{Binding IsBookmarksFlyoutOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Border.Effect>
+                <DropShadowEffect ShadowDepth="5" 
+                                  BlurRadius="15" 
+                                  Opacity="0.3"/>
+            </Border.Effect>
+
+            <views:BookmarksFlyout DataContext="{Binding BookmarksViewModel}"/>
+        </Border>
+
+        <!-- Overlay (dim background when flyout is open) -->
+        <Border Grid.RowSpan="3"
+                Background="Black"
+                Opacity="0.3"
+                Panel.ZIndex="99"
+                Visibility="{Binding IsBookmarksFlyoutOpen, Converter={StaticResource BooleanToVisibilityConverter}}"
+                MouseLeftButtonDown="Overlay_MouseLeftButtonDown"/>
+
+
     </Grid>
 </Window>

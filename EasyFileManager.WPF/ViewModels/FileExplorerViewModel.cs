@@ -4,6 +4,7 @@ using EasyFileManager.Core.Interfaces;
 using EasyFileManager.Core.Models;
 using EasyFileManager.Core.Services;
 using EasyFileManager.WPF.Views;
+using System.Collections;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
@@ -27,8 +28,47 @@ public partial class FileExplorerViewModel : ViewModelBase
     [ObservableProperty]
     private string _currentPath = string.Empty;
 
-    public ObservableCollection<FileSystemEntry> Items =>
-        string.IsNullOrWhiteSpace(FilterText) ? _allItems : _filteredItems;
+    [ObservableProperty]
+    private string _totalSize = "0 B";
+
+    [ObservableProperty]
+    private string _sortColumn = "Name";
+
+    [ObservableProperty]
+    private ListSortDirection _sortDirection = ListSortDirection.Ascending;
+
+    [ObservableProperty]
+    private ObservableCollection<DriveInfoModel> _availableDrives = new();
+
+    [ObservableProperty]
+    private DriveInfoModel? _selectedDrive;
+
+    [ObservableProperty]
+    private ObservableCollection<BreadcrumbItem> _breadcrumbs = new();
+
+    [ObservableProperty]
+    private bool _isPathEditable;
+
+    [ObservableProperty]
+    private ObservableCollection<FileSystemEntry> _allItems = new();
+
+    // ICollectionView for filtering/sorting without collection manipulation
+    private ListCollectionView? _itemsView;
+
+    public ICollectionView Items
+    {
+        get
+        {
+            if (_itemsView == null)
+            {
+                // Rzutuj na ListCollectionView
+                _itemsView = (ListCollectionView)CollectionViewSource.GetDefaultView(AllItems);
+                _itemsView.Filter = FilterPredicate;
+                UpdateSortDescriptions();
+            }
+            return _itemsView;
+        }
+    }
 
     [ObservableProperty]
     private FileSystemEntry? _selectedItem;
@@ -46,37 +86,10 @@ public partial class FileExplorerViewModel : ViewModelBase
     private int _totalItems;
 
     [ObservableProperty]
-    private string _totalSize = "0 B";
-
-    [ObservableProperty]
-    private string _sortColumn = "Name";
-
-    [ObservableProperty]
-    private ListSortDirection _sortDirection = ListSortDirection.Ascending;
-
-    [ObservableProperty]
-    private ObservableCollection<DriveInfoModel> _availableDrives = new();
-
-    [ObservableProperty]
-    private DriveInfoModel? _selectedDrive;
-
-    [ObservableProperty]
     private string _filterText = string.Empty;
 
     [ObservableProperty]
     private bool _isFilterVisible;
-
-    [ObservableProperty]
-    private ObservableCollection<FileSystemEntry> _allItems = new();
-
-    [ObservableProperty]
-    private ObservableCollection<FileSystemEntry> _filteredItems = new();
-
-    [ObservableProperty]
-    private ObservableCollection<BreadcrumbItem> _breadcrumbs = new();
-
-    [ObservableProperty]
-    private bool _isPathEditable;
 
     // ====== Constructor with DI ======
 
@@ -94,7 +107,7 @@ public partial class FileExplorerViewModel : ViewModelBase
         
     }
 
-    // ====== Commands (auto-generated z [RelayCommand]) ======
+    // ====== Commands (auto-generated [RelayCommand]) ======
 
     [RelayCommand]
     private async Task LoadDirectoryAsync()
@@ -112,18 +125,15 @@ public partial class FileExplorerViewModel : ViewModelBase
             var directory = await _fileSystemService.LoadDirectoryAsync(CurrentPath, default);
 
             AllItems.Clear();
-            var sortedItems = directory.Children
-                .OrderByDescending(x => x is DirectoryEntry) // Foldery na górze
-                .ThenBy(x => x.Name); // Potem alfabetycznie
-
-            foreach (var entry in sortedItems)
+            foreach (var entry in directory.Children)
             {
                 AllItems.Add(entry);
             }
 
-            ApplyFilter();
+            // Refresh view to apply sorting/filtering
+            Items.Refresh();
 
-            TotalItems = Items.Count;
+            TotalItems = AllItems.Count;
             TotalSize = CalculateTotalSize(AllItems);
             StatusMessage = $"Loaded {TotalItems} items";
 
@@ -224,8 +234,6 @@ public partial class FileExplorerViewModel : ViewModelBase
             _sortDirection = ListSortDirection.Ascending;
         }
 
-        ApplySort();
-
         _logger.LogDebug("Sorted by {Column} {Direction}", _sortColumn, _sortDirection);
     }
 
@@ -250,7 +258,8 @@ public partial class FileExplorerViewModel : ViewModelBase
             SortDirection = ListSortDirection.Ascending;
         }
 
-        ApplySorting();
+        // ✅ Sorting happens automatically via partial methods
+        // No need to call ApplySorting() - it's handled by OnSortColumnChanged/OnSortDirectionChanged
     }
 
     [RelayCommand]
@@ -718,35 +727,19 @@ public partial class FileExplorerViewModel : ViewModelBase
 
     partial void OnFilterTextChanged(string value)
     {
-        ApplyFilter();
+        Items.Refresh();
+        TotalItems = Items.Cast<object>().Count();
+        _logger.LogDebug("Filter applied: '{Filter}' - {Count} items matched", FilterText, TotalItems);
     }
 
-    private void ApplyFilter()
+    partial void OnSortColumnChanged(string value)
     {
-        if (string.IsNullOrWhiteSpace(FilterText))
-        {
-            // Brak filtra - pokaż wszystko
-            FilteredItems.Clear();
-            OnPropertyChanged(nameof(Items));
-            TotalItems = AllItems.Count;
-            return;
-        }
+        UpdateSortDescriptions();
+    }
 
-        // Filtruj case-insensitive
-        var filtered = AllItems
-            .Where(item => item.Name.Contains(FilterText, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        FilteredItems.Clear();
-        foreach (var item in filtered)
-        {
-            FilteredItems.Add(item);
-        }
-
-        OnPropertyChanged(nameof(Items));
-        TotalItems = FilteredItems.Count;
-
-        _logger.LogDebug("Filter applied: '{Filter}' - {Count} items matched", FilterText, FilteredItems.Count);
+    partial void OnSortDirectionChanged(ListSortDirection value)
+    {
+        UpdateSortDescriptions();
     }
 
     private async Task LoadDrivesAsync()
@@ -789,54 +782,82 @@ public partial class FileExplorerViewModel : ViewModelBase
         }
     }
 
-    private void ApplySorting()
+    private void UpdateSortDescriptions()
     {
-        var sortedList = SortColumn switch
-        {
-            "Name" => SortDirection == ListSortDirection.Ascending
-                ? Items.OrderBy(x => x is DirectoryEntry ? 0 : 1).ThenBy(x => x.Name).ToList()
-                : Items.OrderBy(x => x is DirectoryEntry ? 0 : 1).ThenByDescending(x => x.Name).ToList(),
+        if (_itemsView == null) return;
 
-            "Size" => SortDirection == ListSortDirection.Ascending
-                ? Items.OrderBy(x => x is DirectoryEntry ? 0 : 1)
-                       .ThenBy(x => x is FileEntry file ? file.Size : 0).ToList()
-                : Items.OrderBy(x => x is DirectoryEntry ? 0 : 1)
-                       .ThenByDescending(x => x is FileEntry file ? file.Size : 0).ToList(),
+        _itemsView.SortDescriptions.Clear();
 
-            "Type" => SortDirection == ListSortDirection.Ascending
-                ? Items.OrderBy(x => x is DirectoryEntry ? 0 : 1)
-                       .ThenBy(x => x is DirectoryEntry ? "Folder" : Path.GetExtension(x.Name)).ToList()
-                : Items.OrderBy(x => x is DirectoryEntry ? 0 : 1)
-                       .ThenByDescending(x => x is DirectoryEntry ? "Folder" : Path.GetExtension(x.Name)).ToList(),
+        _itemsView.CustomSort = new FileSystemEntryCustomComparer(SortColumn, SortDirection);
 
-            "LastModified" => SortDirection == ListSortDirection.Ascending
-                ? Items.OrderBy(x => x is DirectoryEntry ? 0 : 1).ThenBy(x => x.LastModified).ToList()
-                : Items.OrderBy(x => x is DirectoryEntry ? 0 : 1).ThenByDescending(x => x.LastModified).ToList(),
-
-            _ => Items.ToList()
-        };
-
-        Items.Clear();
-        foreach (var item in sortedList)
-        {
-            Items.Add(item);
-        }
-
-        _logger.LogDebug("Applied sorting: {Column} {Direction}", SortColumn, SortDirection);
+        _logger.LogDebug("Sort updated: {Column} {Direction}", SortColumn, SortDirection);
     }
 
-    private void ApplySort()
+    /// <summary>
+    /// Custom comparer for sorting: directories first, then by selected property
+    /// </summary>
+    private class FileSystemEntryCustomComparer : IComparer
     {
-        var view = CollectionViewSource.GetDefaultView(Items);
-        view.SortDescriptions.Clear();
+        private readonly string _sortColumn;
+        private readonly ListSortDirection _sortDirection;
 
-        // Zawsze najpierw foldery, potem pliki
-        view.SortDescriptions.Add(new SortDescription(
-            ".", // Sortuj po typie (Directory vs File)
-            ListSortDirection.Descending)); // Directory > File
+        public FileSystemEntryCustomComparer(string sortColumn, ListSortDirection sortDirection)
+        {
+            _sortColumn = sortColumn;
+            _sortDirection = sortDirection;
+        }
 
-        // Potem sortuj według wybranej kolumny
-        view.SortDescriptions.Add(new SortDescription(_sortColumn, _sortDirection));
+        public int Compare(object? x, object? y)
+        {
+            if (x is not FileSystemEntry entryX || y is not FileSystemEntry entryY)
+                return 0;
+
+            // 1. Primary: Directories always first
+            bool xIsDir = entryX is DirectoryEntry;
+            bool yIsDir = entryY is DirectoryEntry;
+
+            if (xIsDir && !yIsDir) return -1;
+            if (!xIsDir && yIsDir) return 1;
+
+            // 2. Secondary: Sort by column
+            int result = _sortColumn switch
+            {
+                "Name" => string.Compare(entryX.Name, entryY.Name, StringComparison.OrdinalIgnoreCase),
+
+                "Size" => (entryX, entryY) switch
+                {
+                    (FileEntry fileX, FileEntry fileY) => fileX.Size.CompareTo(fileY.Size),
+                    _ => 0
+                },
+
+                "Type" => (entryX, entryY) switch
+                {
+                    (FileEntry fileX, FileEntry fileY) =>
+                        string.Compare(fileX.Extension, fileY.Extension, StringComparison.OrdinalIgnoreCase),
+                    _ => 0
+                },
+
+                "LastModified" => entryX.LastModified.CompareTo(entryY.LastModified),
+
+                _ => string.Compare(entryX.Name, entryY.Name, StringComparison.OrdinalIgnoreCase)
+            };
+
+            return _sortDirection == ListSortDirection.Ascending ? result : -result;
+        }
+    }
+
+    // Helper for primary sort (Directory before File)
+    private bool FilterPredicate(object obj)
+    {
+        if (string.IsNullOrWhiteSpace(FilterText))
+            return true;
+
+        if (obj is FileSystemEntry entry)
+        {
+            return entry.Name.Contains(FilterText, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
     }
 
     private static string CalculateTotalSize(IEnumerable<FileSystemEntry> items)

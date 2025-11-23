@@ -32,6 +32,23 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private FileExplorerViewModel? _activePanel;
 
+    [ObservableProperty]
+    private bool _isBookmarksFlyoutOpen;
+
+    private BookmarksViewModel? _bookmarksViewModel;
+
+    public BookmarksViewModel BookmarksViewModel
+    {
+        get
+        {
+            if (_bookmarksViewModel == null)
+            {
+                _bookmarksViewModel = _serviceProvider.GetRequiredService<BookmarksViewModel>();
+            }
+            return _bookmarksViewModel;
+        }
+    }
+
     // ====== Constructor with DI ======
 
     public MainViewModel(
@@ -54,6 +71,8 @@ public partial class MainViewModel : ViewModelBase
         _rightPanel.CurrentPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
 
         _activePanel = _leftPanel;
+
+        //_bookmarksViewModel = _serviceProvider.GetRequiredService<BookmarksViewModel>();
 
         _logger.LogInformation("MainViewModel initialized with theme: {Theme}", _isDarkTheme ? "Dark" : "Light");
     }
@@ -87,6 +106,13 @@ public partial class MainViewModel : ViewModelBase
     {
         _logger.LogInformation("Settings requested");
         System.Windows.MessageBox.Show("Settings window coming soon...", "Settings");
+    }
+
+    [RelayCommand]
+    private void ToggleBookmarksFlyout()
+    {
+        IsBookmarksFlyoutOpen = !IsBookmarksFlyoutOpen;
+        _logger.LogDebug("Bookmarks flyout toggled: {IsOpen}", IsBookmarksFlyoutOpen);
     }
 
     [RelayCommand]

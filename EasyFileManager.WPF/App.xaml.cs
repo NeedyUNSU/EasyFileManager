@@ -50,23 +50,45 @@ public partial class App : Application
         // Core Services
         services.AddSingleton(typeof(IAppLogger<>), typeof(AppLogger<>));
         services.AddSingleton<IFileSystemService, AsyncFileSystemService>();
+        services.AddSingleton<IFileTransferService, FileTransferService>();
+        services.AddSingleton<IBookmarkService, BookmarkService>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();
         services.AddTransient<FileExplorerViewModel>();
-        services.AddSingleton<IFileTransferService, FileTransferService>();
+        services.AddSingleton<BookmarksViewModel>();
 
         _serviceProvider = services.BuildServiceProvider();
 
-        // MainWindow with DI
-        var mainWindow = new MainWindow
+        try
         {
-            DataContext = _serviceProvider.GetRequiredService<MainViewModel>()
-        };
-        mainWindow.Show();
+            // MainWindow with DI
+            var mainWindow = new MainWindow
+            {
+                DataContext = _serviceProvider.GetRequiredService<MainViewModel>()
+            };
 
-        var mainViewModel = (MainViewModel)mainWindow.DataContext;
-        _ = mainViewModel.InitializeCommand.ExecuteAsync(null);
+            Log.Information("MainWindow created successfully");
+
+            mainWindow.Show();
+
+            Log.Information("MainWindow shown successfully");
+
+            var mainViewModel = (MainViewModel)mainWindow.DataContext;
+            _ = mainViewModel.InitializeCommand.ExecuteAsync(null);
+
+            Log.Information("Application started successfully");
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "CRITICAL ERROR during MainWindow initialization");
+            MessageBox.Show(
+                $"Fatal error during startup:\n\n{ex.Message}\n\nStack Trace:\n{ex.StackTrace}",
+                "Startup Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            throw;
+        }
 
         Log.Information("Application started successfully");
     }
