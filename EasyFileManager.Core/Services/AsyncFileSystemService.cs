@@ -13,16 +13,25 @@ namespace EasyFileManager.Core.Services;
 public class AsyncFileSystemService : IFileSystemService
 {
     private readonly IAppLogger<AsyncFileSystemService> _logger;
+    private readonly IArchiveService? _archiveService;
 
-    public AsyncFileSystemService(IAppLogger<AsyncFileSystemService> logger)
+    public AsyncFileSystemService(
+        IAppLogger<AsyncFileSystemService> logger,
+        IArchiveService? archiveService = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _archiveService = archiveService;
     }
 
     public async Task<DirectoryEntry> LoadDirectoryAsync(
         string path,
         CancellationToken cancellationToken = default)
     {
+        if (_archiveService != null && _archiveService.IsArchivePath(path))
+        {
+            return await LoadArchiveDirectoryAsync(path, cancellationToken);
+        }
+
         return await LoadDirectoryAsync(path, null, cancellationToken);
     }
 
@@ -132,5 +141,42 @@ public class AsyncFileSystemService : IFileSystemService
 
             return drives;
         }, cancellationToken);
+    }
+
+    public bool IsArchivePath(string path)
+    {
+        return _archiveService?.IsArchivePath(path) ?? false;
+    }
+
+    public bool IsArchiveFile(string filePath)
+    {
+        return _archiveService?.IsArchiveFile(filePath) ?? false;
+    }
+
+    public async Task<DirectoryEntry> LoadArchiveDirectoryAsync(
+        string path,
+        CancellationToken cancellationToken = default)
+    {
+        if (_archiveService == null)
+            throw new NotSupportedException("Archive service is not available");
+
+        _logger.LogInformation("Loading archive directory: {Path}", path);
+
+        var (archivePath, innerPath) = _archiveService.ParseArchivePath(path);
+
+        try
+        {
+            return await _archiveService.LoadArchiveAsync(archivePath, innerPath);
+        }
+        catch (PasswordRequiredException)
+        {
+            // Re-throw - UI layer will handle password prompt
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load archive: {Path}", path);
+            throw;
+        }
     }
 }

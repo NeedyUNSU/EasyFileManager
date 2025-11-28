@@ -36,6 +36,23 @@ public interface IFileSystemService
     /// Gets available drives with metadata
     /// </summary>
     Task<List<DriveInfoModel>> GetDrivesWithMetadataAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if a path points to an archive (contains :: separator)
+    /// </summary>
+    bool IsArchivePath(string path);
+
+    /// <summary>
+    /// Checks if a file is a supported archive type
+    /// </summary>
+    bool IsArchiveFile(string filePath);
+
+    /// <summary>
+    /// Loads contents of an archive or path inside an archive
+    /// </summary>
+    Task<DirectoryEntry> LoadArchiveDirectoryAsync(
+        string path,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>

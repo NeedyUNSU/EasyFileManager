@@ -54,6 +54,14 @@ public partial class App : Application
         services.AddSingleton<IBookmarkService, BookmarkService>();
         services.AddSingleton<IPreviewService, PreviewService>();
         services.AddSingleton<ITabPersistenceService, TabPersistenceService>();
+        services.AddSingleton<EasyFileManager.Core.Services.Plugins.ZipPlugin>();
+        services.AddSingleton<IArchiveService>(sp =>
+        {
+            var logger = sp.GetRequiredService<IAppLogger<ArchiveService>>();
+            var zipPlugin = sp.GetRequiredService<EasyFileManager.Core.Services.Plugins.ZipPlugin>();
+            var plugins = new[] { zipPlugin };
+            return new ArchiveService(plugins, logger);
+        });
 
         // ViewModels
         services.AddTransient<TabViewModel>();

@@ -196,25 +196,54 @@ public partial class FileExplorerViewModel : ViewModelBase
         if (item == null)
             return;
 
+        // Handle ArchiveEntry (navigate inside archive)
+        if (item is ArchiveDirectoryEntry archiveDir)
+        {
+            await NavigateToAsync(archiveDir.VirtualPath);
+            return;
+        }
+
+        // Handle ArchiveFileEntry (open for preview or external viewer)
+        if (item is ArchiveFileEntry archiveFile)
+        {
+            // For now, just show message - Phase 2 will add preview/extract
+            MessageBox.Show(
+                $"File inside archive: {archiveFile.Name}\n\nUse Extract (Ctrl+E) to extract this file.",
+                "Archive File",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
         if (item is DirectoryEntry)
         {
             await NavigateToAsync(item.FullPath);
         }
-        else if (item is FileEntry)
+        else if (item is FileEntry fileEntry)
         {
-            try
+            // Check if file is archive
+            if (_fileSystemService.IsArchiveFile(fileEntry.FullPath))
             {
-                _logger.LogInformation("Opening file: {Path}", item.FullPath);
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = item.FullPath,
-                    UseShellExecute = true
-                });
+                _logger.LogInformation("Opening archive: {Path}", fileEntry.FullPath);
+                // Navigate into archive (virtual path with :: separator)
+                await NavigateToAsync($"{fileEntry.FullPath}::");
             }
-            catch (Exception ex)
+            else
             {
-                _logger.LogError(ex, "Failed to open file: {Path}", item.FullPath);
-                MessageBox.Show($"Failed to open file:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                try
+                {
+                    _logger.LogInformation("Opening file: {Path}", item.FullPath);
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = item.FullPath,
+                        UseShellExecute = true
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to open file: {Path}", item.FullPath);
+                    MessageBox.Show($"Failed to open file:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
     }
