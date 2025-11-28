@@ -53,8 +53,10 @@ public partial class App : Application
         services.AddSingleton<IFileTransferService, FileTransferService>();
         services.AddSingleton<IBookmarkService, BookmarkService>();
         services.AddSingleton<IPreviewService, PreviewService>();
+        services.AddSingleton<ITabPersistenceService, TabPersistenceService>();
 
         // ViewModels
+        services.AddTransient<TabViewModel>();
         services.AddSingleton<MainViewModel>();
         services.AddTransient<FileExplorerViewModel>();
         services.AddSingleton<BookmarksViewModel>();

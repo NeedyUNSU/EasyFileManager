@@ -14,6 +14,7 @@ public partial class MainViewModel : ViewModelBase
 {
     private readonly IAppLogger<MainViewModel> _logger;
     private readonly IServiceProvider _serviceProvider;
+    private readonly ITabPersistenceService _tabPersistenceService;
 
     // ====== Two independent panels ======
 
@@ -79,10 +80,12 @@ public partial class MainViewModel : ViewModelBase
 
     public MainViewModel(
         IAppLogger<MainViewModel> logger,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        ITabPersistenceService tabPersistenceService)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _tabPersistenceService = tabPersistenceService ?? throw new ArgumentNullException(nameof(tabPersistenceService));
 
         _logger.LogInformation("Initializing MainViewModel");
 
@@ -93,12 +96,25 @@ public partial class MainViewModel : ViewModelBase
         _leftPanel = _serviceProvider.GetRequiredService<FileExplorerViewModel>();
         _rightPanel = _serviceProvider.GetRequiredService<FileExplorerViewModel>();
 
+        var leftTabBar = new TabBarViewModel(
+            _serviceProvider.GetRequiredService<IAppLogger<TabBarViewModel>>(),
+            _tabPersistenceService,
+            () => _serviceProvider.GetRequiredService<TabViewModel>(),
+            "left");
+
+        var rightTabBar = new TabBarViewModel(
+            _serviceProvider.GetRequiredService<IAppLogger<TabBarViewModel>>(),
+            _tabPersistenceService,
+            () => _serviceProvider.GetRequiredService<TabViewModel>(),
+            "right");
+
+        _leftPanel.InitializeTabBar(leftTabBar);
+        _rightPanel.InitializeTabBar(rightTabBar);
+
         _leftPanel.CurrentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         _rightPanel.CurrentPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
 
         _activePanel = _leftPanel;
-
-        //_bookmarksViewModel = _serviceProvider.GetRequiredService<BookmarksViewModel>();
 
         _logger.LogInformation("MainViewModel initialized with theme: {Theme}", _isDarkTheme ? "Dark" : "Light");
     }
@@ -155,15 +171,34 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private async Task InitializeAsync()
     {
-        _logger.LogInformation("Loading initial directories");
+        _logger.LogInformation("Loading initial directories and tabs");
 
-        // Załaduj oba panele równolegle
+        // Initialize tabs first
+        var leftDefaultPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var rightDefaultPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+
+        await Task.WhenAll(
+            _leftPanel.TabBar!.InitializeAsync(leftDefaultPath),
+            _rightPanel.TabBar!.InitializeAsync(rightDefaultPath)
+        );
+
+        // Load active tabs
+        if (_leftPanel.TabBar.ActiveTab != null)
+        {
+            _leftPanel.CurrentPath = _leftPanel.TabBar.ActiveTab.Path;
+        }
+
+        if (_rightPanel.TabBar.ActiveTab != null)
+        {
+            _rightPanel.CurrentPath = _rightPanel.TabBar.ActiveTab.Path;
+        }
+
         await Task.WhenAll(
             _leftPanel.LoadDirectoryCommand.ExecuteAsync(null),
             _rightPanel.LoadDirectoryCommand.ExecuteAsync(null)
         );
 
-        _logger.LogInformation("Initial directories loaded");
+        _logger.LogInformation("Initial directories and tabs loaded");
     }
 
     public FileExplorerViewModel GetTargetPanel(FileExplorerViewModel sourcePanel)

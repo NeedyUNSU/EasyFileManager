@@ -22,6 +22,7 @@ public partial class FileExplorerViewModel : ViewModelBase
     private readonly IFileSystemService _fileSystemService;
     private readonly IAppLogger<FileExplorerViewModel> _logger;
     private readonly IFileTransferService _fileTransferService;
+    private TabBarViewModel? _tabBarViewModel;
 
     // ====== ObservableProperties ======
 
@@ -48,6 +49,9 @@ public partial class FileExplorerViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isPathEditable;
+
+    [ObservableProperty]
+    private TabBarViewModel? _tabBar;
 
     [ObservableProperty]
     private ObservableCollection<FileSystemEntry> _allItems = new();
@@ -257,9 +261,6 @@ public partial class FileExplorerViewModel : ViewModelBase
             SortColumn = columnName;
             SortDirection = ListSortDirection.Ascending;
         }
-
-        // ✅ Sorting happens automatically via partial methods
-        // No need to call ApplySorting() - it's handled by OnSortColumnChanged/OnSortDirectionChanged
     }
 
     [RelayCommand]
@@ -881,9 +882,31 @@ public partial class FileExplorerViewModel : ViewModelBase
         return $"{len:0.##} {sizes[order]}";
     }
 
+    /// <summary>
+    /// Initializes the tab bar for this panel
+    /// Called by MainViewModel after construction
+    /// </summary>
+    public void InitializeTabBar(TabBarViewModel tabBar)
+    {
+        _tabBarViewModel = tabBar;
+        TabBar = tabBar;
+
+        _tabBarViewModel.SetPathChangedCallback(async (path) =>
+        {
+            CurrentPath = path;
+            await LoadDirectoryCommand.ExecuteAsync(null);
+        });
+
+        _logger.LogDebug("Tab bar initialized for FileExplorerViewModel");
+    }
+
+    /// <summary>
+    /// Updates the active tab when navigation occurs
+    /// </summary>
     partial void OnCurrentPathChanged(string value)
     {
         UpdateBreadcrumbs();
+        _tabBarViewModel?.UpdateActiveTabPath(value);
         _logger.LogDebug("Current path changed to: {Path}", value);
     }
 

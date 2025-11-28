@@ -39,6 +39,17 @@
             <KeyBinding Key="Escape" 
                 Command="{Binding ActivePanel.HideFilterCommand}"/>
 
+            <!-- Tab Management -->
+            <KeyBinding Key="T" Modifiers="Ctrl" 
+                Command="{Binding ActivePanel.TabBar.NewTabCommand}"/>
+            <KeyBinding Key="W" Modifiers="Ctrl" 
+                Command="{Binding ActivePanel.TabBar.CloseTabCommand}"
+                CommandParameter="{Binding ActivePanel.TabBar.ActiveTab}"/>
+            <KeyBinding Key="Tab" Modifiers="Ctrl" 
+                Command="{Binding ActivePanel.TabBar.NextTabCommand}"/>
+            <KeyBinding Key="Tab" Modifiers="Ctrl+Shift" 
+                Command="{Binding ActivePanel.TabBar.PreviousTabCommand}"/>
+
             <!-- Copy/Move -->
             <KeyBinding Key="F5" 
                 Command="{Binding ActivePanel.CopyToTargetPanelCommand}"/>
@@ -194,12 +205,18 @@
 
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>  <!-- Tab Bar -->
+                        <RowDefinition Height="Auto"/>  <!-- Navigation header -->
+                        <RowDefinition Height="*"/>     <!-- Content (ListView) -->
                     </Grid.RowDefinitions>
 
+                    <!-- Tab Bar -->
+                    <views:TabBar Grid.Row="0" 
+                                  DataContext="{Binding TabBar}"
+                                  Visibility="{Binding HasMultipleTabs, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
                     <!-- Left Panel Header -->
-                    <Grid Grid.Row="0">
+                    <Grid Grid.Row="1">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
@@ -357,7 +374,7 @@
                     </Grid>
 
                     <!-- Left Panel Content -->
-                    <ListView Grid.Row="1" 
+                    <ListView Grid.Row="2" 
                               Margin="8"
                               SelectionMode="Extended"
                               SelectionChanged="ListView_SelectionChanged"
@@ -529,12 +546,19 @@
 
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>  <!-- Tab Bar -->
+                        <RowDefinition Height="Auto"/>  <!-- Navigation header -->
+                        <RowDefinition Height="*"/>     <!-- Content (ListView) -->
                     </Grid.RowDefinitions>
 
+                    <!-- Tab Bar -->
+                    <views:TabBar Grid.Row="0" 
+                                  DataContext="{Binding TabBar}"
+                                  Visibility="{Binding HasMultipleTabs, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+
                     <!-- Right Panel Header -->
-                    <Grid Grid.Row="0">
+                    <Grid Grid.Row="1">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
@@ -689,7 +713,7 @@
                     </Grid>
 
                     <!-- Right Panel Content -->
-                    <ListView Grid.Row="1" 
+                    <ListView Grid.Row="2" 
                               Margin="8"
                               SelectionMode="Extended"
                               SelectionChanged="ListView_SelectionChanged"
