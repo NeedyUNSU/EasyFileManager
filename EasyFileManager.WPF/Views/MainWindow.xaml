@@ -86,7 +86,7 @@
                     
                     <!-- Bookmarks button -->
                     <ToggleButton Style="{StaticResource MaterialDesignActionToggleButton}"
-                                  IsChecked="{Binding DataContext.IsBookmarksFlyoutOpen, RelativeSource={RelativeSourceAncestorTypeWindow},         Mode=TwoWay}"
+                                  IsChecked="{Binding DataContext.IsBookmarksFlyoutOpen, RelativeSource={RelativeSource AncestorType=Window}}"
                                   Foreground="{DynamicResource MaterialDesignBody}"
                                   ToolTip="Bookmarks (Ctrl+D)"
                                   Margin="8,0">
@@ -95,7 +95,7 @@
 
                     <!-- Preview Panel Toggle -->
                     <ToggleButton Style="{StaticResource MaterialDesignActionToggleButton}"
-                                  IsChecked="{Binding DataContext.IsPreviewPanelVisible, RelativeSource={RelativeSourceAncestorTypeWindow},         Mode=TwoWay}"
+                                  IsChecked="{Binding DataContext.IsPreviewPanelVisible, RelativeSource={RelativeSource AncestorType=Window}}"
                                   Foreground="{DynamicResource MaterialDesignBody}"
                                   ToolTip="Preview Panel (F3)"
                                   Margin="8,0">
