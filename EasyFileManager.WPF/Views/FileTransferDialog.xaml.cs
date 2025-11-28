@@ -48,12 +48,32 @@ public partial class FileTransferDialog : Window
 
     public void SetCompleted(bool success)
     {
-        Dispatcher.Invoke(() =>
+        System.Diagnostics.Debug.WriteLine($">>> SetCompleted called. Success: {success}");
+        System.Diagnostics.Debug.WriteLine($">>> Current thread ID: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
+        System.Diagnostics.Debug.WriteLine($">>> Dispatcher thread ID: {Dispatcher.Thread.ManagedThreadId}");
+
+        try
         {
-            TitleTextBlock.Text = success ? "Transfer completed!" : "Transfer failed";
-            CancelButton.Visibility = Visibility.Collapsed;
-            CloseButton.Visibility = Visibility.Visible;
-        });
+            System.Diagnostics.Debug.WriteLine(">>> About to call Dispatcher.Invoke...");
+            Dispatcher.Invoke(() =>
+            {
+                System.Diagnostics.Debug.WriteLine(">>> Inside Dispatcher.Invoke");
+                System.Diagnostics.Debug.WriteLine($">>> Setting TitleTextBlock.Text...");
+                TitleTextBlock.Text = success ? "Transfer completed!" : "Transfer failed";
+                System.Diagnostics.Debug.WriteLine($">>> Setting CancelButton.Visibility...");
+                CancelButton.Visibility = Visibility.Collapsed;
+                System.Diagnostics.Debug.WriteLine($">>> Setting CloseButton.Visibility...");
+                CloseButton.Visibility = Visibility.Visible;
+                System.Diagnostics.Debug.WriteLine(">>> Dispatcher.Invoke completed");
+            });
+            System.Diagnostics.Debug.WriteLine(">>> SetCompleted succeeded");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($">>> EXCEPTION in SetCompleted: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($">>> Stack trace: {ex.StackTrace}");
+            throw;
+        }
     }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)

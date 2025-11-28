@@ -8,6 +8,7 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Linq; // ✅ DODANE
 using System.Windows;
 using System.Windows.Data;
 using static MaterialDesignThemes.Wpf.Theme.ToolBar;
@@ -22,6 +23,7 @@ public partial class FileExplorerViewModel : ViewModelBase
     private readonly IFileSystemService _fileSystemService;
     private readonly IAppLogger<FileExplorerViewModel> _logger;
     private readonly IFileTransferService _fileTransferService;
+    private readonly IArchiveService _archiveService;
     private TabBarViewModel? _tabBarViewModel;
 
     // ====== ObservableProperties ======
@@ -100,15 +102,17 @@ public partial class FileExplorerViewModel : ViewModelBase
     public FileExplorerViewModel(
         IFileSystemService fileSystemService,
         IFileTransferService fileTransferService,
+        IArchiveService archiveService,
         IAppLogger<FileExplorerViewModel> logger)
     {
         _fileSystemService = fileSystemService ?? throw new ArgumentNullException(nameof(fileSystemService));
         _fileTransferService = fileTransferService ?? throw new ArgumentNullException(nameof(fileTransferService));
+        _archiveService = archiveService ?? throw new ArgumentNullException(nameof(archiveService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         CurrentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         _ = LoadDrivesAsync();
-        
+
     }
 
     // ====== Commands (auto-generated [RelayCommand]) ======
@@ -119,15 +123,85 @@ public partial class FileExplorerViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(CurrentPath))
             return;
 
+        // ✅ Store path to load (don't modify CurrentPath until success)
+        var pathToLoad = CurrentPath;
+
         try
         {
             IsLoading = true;
-            StatusMessage = $"Loading {CurrentPath}...";
+            StatusMessage = $"Loading {pathToLoad}...";
 
-            _logger.LogInformation("Loading directory: {Path}", CurrentPath);
+            _logger.LogInformation("Loading directory: {Path}", pathToLoad);
 
-            var directory = await _fileSystemService.LoadDirectoryAsync(CurrentPath, default);
+            DirectoryEntry directory;
 
+            // Try to load, handle password requirement
+            try
+            {
+                directory = await _fileSystemService.LoadDirectoryAsync(pathToLoad, default);
+            }
+            catch (PasswordRequiredException ex)
+            {
+                _logger.LogDebug("Archive requires password: {Path}", ex.ArchivePath);
+
+                // Show password dialog
+                var archiveName = Path.GetFileName(ex.ArchivePath);
+                var passwordDialog = new ArchivePasswordDialog(archiveName)
+                {
+                    Owner = Application.Current.MainWindow
+                };
+
+                passwordDialog.ShowDialog();
+
+                if (!passwordDialog.Confirmed)
+                {
+                    StatusMessage = "Archive opening cancelled";
+                    IsLoading = false;
+                    // ✅ Don't change path - abort silently
+                    return;
+                }
+
+                // Retry with password
+                try
+                {
+                    var (archivePath, innerPath) = ParseArchivePath(pathToLoad);
+                    directory = await _archiveService.LoadArchiveAsync(archivePath, innerPath, passwordDialog.Password);
+                }
+                catch (InvalidPasswordException)
+                {
+                    _logger.LogWarning("Invalid password provided for: {Path}", ex.ArchivePath);
+
+                    IsLoading = false;
+                    StatusMessage = "Invalid password";
+
+                    MessageBox.Show(
+                        "Invalid password. Please try again.",
+                        "Invalid Password",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+
+                    // ✅ Don't change path - user stays in previous location
+                    return;
+                }
+            }
+            catch (InvalidPasswordException ex)
+            {
+                _logger.LogWarning("Invalid password for: {Path}", ex.ArchivePath);
+
+                IsLoading = false;
+                StatusMessage = "Invalid password";
+
+                MessageBox.Show(
+                    "Invalid password.",
+                    "Invalid Password",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+
+                // ✅ Don't change path
+                return;
+            }
+
+            // ✅ SUCCESS - Path is already set by NavigateToAsync
             AllItems.Clear();
             foreach (var entry in directory.Children)
             {
@@ -141,23 +215,23 @@ public partial class FileExplorerViewModel : ViewModelBase
             TotalSize = CalculateTotalSize(AllItems);
             StatusMessage = $"Loaded {TotalItems} items";
 
-            _logger.LogDebug("Successfully loaded {Count} items from {Path}", TotalItems, CurrentPath);
+            _logger.LogDebug("Successfully loaded {Count} items from {Path}", TotalItems, pathToLoad);
         }
         catch (DirectoryNotFoundException ex)
         {
-            _logger.LogWarning(ex.ToString(), "Directory not found: {Path}", CurrentPath);
-            StatusMessage = $"Directory not found: {CurrentPath}";
-            MessageBox.Show($"Directory not found:\n{CurrentPath}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            _logger.LogWarning(ex.ToString(), "Directory not found: {Path}", pathToLoad);
+            StatusMessage = $"Directory not found: {pathToLoad}";
+            MessageBox.Show($"Directory not found:\n{pathToLoad}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogWarning(ex.ToString(), "Access denied: {Path}", CurrentPath);
-            StatusMessage = $"Access denied: {CurrentPath}";
-            MessageBox.Show($"Access denied:\n{CurrentPath}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            _logger.LogWarning(ex.ToString(), "Access denied: {Path}", pathToLoad);
+            StatusMessage = $"Access denied: {pathToLoad}";
+            MessageBox.Show($"Access denied:\n{pathToLoad}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load directory: {Path}", CurrentPath);
+            _logger.LogError(ex, "Failed to load directory: {Path}", pathToLoad);
             StatusMessage = "Error loading directory";
             MessageBox.Show($"Error loading directory:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
@@ -183,10 +257,37 @@ public partial class FileExplorerViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(CurrentPath))
             return;
 
-        var parent = Directory.GetParent(CurrentPath);
-        if (parent != null)
+        // ✅ Check if we're in an archive
+        if (_fileSystemService.IsArchivePath(CurrentPath))
         {
-            await NavigateToAsync(parent.FullName);
+            var (archivePath, innerPath) = ParseArchivePath(CurrentPath);
+
+            if (string.IsNullOrEmpty(innerPath))
+            {
+                // We're at archive root (e.g., "C:\archive.zip::")
+                // Navigate to folder containing the archive
+                var archiveDir = Path.GetDirectoryName(archivePath);
+                if (!string.IsNullOrEmpty(archiveDir))
+                {
+                    await NavigateToAsync(archiveDir);
+                }
+            }
+            else
+            {
+                // We're in a subfolder inside archive (e.g., "C:\archive.zip::folder")
+                // Navigate to parent folder inside archive
+                var parentInnerPath = Path.GetDirectoryName(innerPath)?.Replace('\\', '/') ?? string.Empty;
+                await NavigateToAsync($"{archivePath}::{parentInnerPath}");
+            }
+        }
+        else
+        {
+            // Regular directory navigation
+            var parent = Directory.GetParent(CurrentPath);
+            if (parent != null)
+            {
+                await NavigateToAsync(parent.FullName);
+            }
         }
     }
 
@@ -196,14 +297,14 @@ public partial class FileExplorerViewModel : ViewModelBase
         if (item == null)
             return;
 
-        // Handle ArchiveEntry (navigate inside archive)
+        // ✅ Handle ArchiveEntry (navigate inside archive)
         if (item is ArchiveDirectoryEntry archiveDir)
         {
             await NavigateToAsync(archiveDir.VirtualPath);
             return;
         }
 
-        // Handle ArchiveFileEntry (open for preview or external viewer)
+        // ✅ Handle ArchiveFileEntry (open for preview or external viewer)
         if (item is ArchiveFileEntry archiveFile)
         {
             // For now, just show message - Phase 2 will add preview/extract
@@ -221,7 +322,7 @@ public partial class FileExplorerViewModel : ViewModelBase
         }
         else if (item is FileEntry fileEntry)
         {
-            // Check if file is archive
+            // ✅ Check if file is archive
             if (_fileSystemService.IsArchiveFile(fileEntry.FullPath))
             {
                 _logger.LogInformation("Opening archive: {Path}", fileEntry.FullPath);
@@ -267,6 +368,8 @@ public partial class FileExplorerViewModel : ViewModelBase
             _sortDirection = ListSortDirection.Ascending;
         }
 
+        UpdateSortDescriptions();
+
         _logger.LogDebug("Sorted by {Column} {Direction}", _sortColumn, _sortDirection);
     }
 
@@ -290,6 +393,8 @@ public partial class FileExplorerViewModel : ViewModelBase
             SortColumn = columnName;
             SortDirection = ListSortDirection.Ascending;
         }
+
+        UpdateSortDescriptions();
     }
 
     [RelayCommand]
@@ -658,15 +763,6 @@ public partial class FileExplorerViewModel : ViewModelBase
         var count = SelectedItems.Count > 0 ? SelectedItems.Count : 1;
         var itemText = count == 1 ? $"'{SelectedItem.Name}'" : $"{count} items";
 
-        //var result = MessageBox.Show(
-        //    $"Move {itemText} to '{destinationPath}'?",
-        //    "Confirm Move",
-        //    MessageBoxButton.YesNo,
-        //    MessageBoxImage.Question);
-
-        //if (result != MessageBoxResult.Yes)
-        //    return;
-
         _logger.LogInformation("Moving {Count} item(s) to {Destination}", count, destinationPath);
 
         // Progress dialog
@@ -753,7 +849,237 @@ public partial class FileExplorerViewModel : ViewModelBase
         }
     }
 
-    // ====== Helper Methods ======
+    /// <summary>
+    /// Extracts selected files from archive
+    /// </summary>
+    [RelayCommand]
+    private async Task ExtractFromArchiveAsync()
+    {
+        System.Diagnostics.Debug.WriteLine(">>> ExtractFromArchiveAsync START");
+        System.Diagnostics.Debug.WriteLine($">>> Thread ID: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
+        System.Diagnostics.Debug.WriteLine($">>> IsArchivePath: {_fileSystemService.IsArchivePath(CurrentPath)}");
+        System.Diagnostics.Debug.WriteLine($">>> CurrentPath: {CurrentPath}");
+
+        // Check if we're inside an archive
+        if (!_fileSystemService.IsArchivePath(CurrentPath))
+        {
+            MessageBox.Show(
+                "This command is only available when browsing inside an archive.",
+                "Extract",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        // Get selected items or all items
+        var itemsToExtract = SelectedItems.Count > 0
+            ? SelectedItems.Cast<ArchiveEntry>().ToList()
+            : AllItems.Cast<ArchiveEntry>().ToList();
+
+        if (itemsToExtract.Count == 0)
+        {
+            MessageBox.Show(
+                "No items to extract.",
+                "Extract",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        // Parse archive path
+        var (archivePath, innerPath) = ParseArchivePath(CurrentPath);
+        var archiveName = Path.GetFileName(archivePath);
+
+        // Show extract dialog
+        var dialog = new ExtractArchiveDialog(archiveName, itemsToExtract.Count)
+        {
+            Owner = Application.Current.MainWindow
+        };
+
+        dialog.ShowDialog();
+
+        if (!dialog.Confirmed)
+            return;
+
+        var destinationPath = dialog.DestinationPath;
+
+        _logger.LogInformation("Extracting {Count} items from {Archive} to {Destination}",
+            itemsToExtract.Count, archivePath, destinationPath);
+
+        // Show progress dialog
+        var progressDialog = new FileTransferDialog("Extracting")
+        {
+            Owner = Application.Current.MainWindow
+        };
+
+        // Convert ArchiveProgress to FileTransferProgress and update dialog directly
+        var archiveProgressAdapter = new Progress<ArchiveProgress>(ap =>
+        {
+            var fileTransferProgress = new FileTransferProgress
+            {
+                CurrentFile = ap.CurrentFile,
+                ProcessedFiles = ap.ProcessedFiles,
+                TotalFiles = ap.TotalFiles,
+                TransferredBytes = ap.ProcessedBytes,
+                TotalBytes = ap.TotalBytes
+            };
+
+            progressDialog.UpdateProgress(fileTransferProgress);
+        });
+
+        // ✅ Run extract on background thread WITHOUT accessing UI
+        var extractTask = Task.Run(async () =>
+        {
+            try
+            {
+                // Extract with structure
+                await _archiveService.ExtractAsync(
+                    archivePath,
+                    itemsToExtract,
+                    destinationPath,
+                    archiveProgressAdapter,
+                    progressDialog.CancellationToken);
+
+                // If flatten requested, reorganize files AFTER extraction
+                if (!dialog.PreserveStructure)
+                {
+                    await FlattenExtractedFilesAsync(destinationPath, progressDialog.CancellationToken);
+                }
+
+                return (success: true, error: (string?)null);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("Extract operation cancelled by user");
+                return (success: false, error: (string?)null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Extract failed");
+                return (success: false, error: ex.Message);
+            }
+        });
+
+        progressDialog.Show();
+        System.Diagnostics.Debug.WriteLine(">>> Progress dialog shown");
+
+        System.Diagnostics.Debug.WriteLine(">>> About to await extractTask...");
+        var (success, errorMessage) = await extractTask;
+        System.Diagnostics.Debug.WriteLine($">>> extractTask completed. Success: {success}, Error: {errorMessage}");
+
+        System.Diagnostics.Debug.WriteLine($">>> Current thread ID: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
+        System.Diagnostics.Debug.WriteLine($">>> Dispatcher thread ID: {Application.Current.Dispatcher.Thread.ManagedThreadId}");
+
+        try
+        {
+            System.Diagnostics.Debug.WriteLine(">>> Attempting to show error MessageBox...");
+            if (errorMessage != null)
+            {
+                MessageBox.Show(
+                    $"Failed to extract:\n{errorMessage}",
+                    "Extract Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            System.Diagnostics.Debug.WriteLine(">>> MessageBox shown (or skipped)");
+
+            System.Diagnostics.Debug.WriteLine(">>> Attempting progressDialog.SetCompleted...");
+            progressDialog.SetCompleted(success);
+            System.Diagnostics.Debug.WriteLine(">>> progressDialog.SetCompleted succeeded");
+
+            System.Diagnostics.Debug.WriteLine(">>> Setting StatusMessage...");
+            if (success)
+            {
+                StatusMessage = $"Extracted {itemsToExtract.Count} item(s)";
+
+                // Open folder if requested
+                if (dialog.OpenFolder && Directory.Exists(destinationPath))
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = destinationPath,
+                        UseShellExecute = true
+                    });
+                }
+            }
+            else if (errorMessage == null)
+            {
+                StatusMessage = "Extract cancelled";
+            }
+            else
+            {
+                StatusMessage = "Extract failed";
+            }
+            System.Diagnostics.Debug.WriteLine(">>> StatusMessage set");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($">>> EXCEPTION in post-extract UI operations: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($">>> Stack trace: {ex.StackTrace}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Helper to parse archive path (archive.zip::innerPath)
+    /// </summary>
+    private (string archivePath, string innerPath) ParseArchivePath(string virtualPath)
+    {
+        if (!virtualPath.Contains("::"))
+            return (virtualPath, string.Empty);
+
+        var parts = virtualPath.Split(new[] { "::" }, 2, StringSplitOptions.None);
+        return (parts[0], parts.Length > 1 ? parts[1] : string.Empty);
+    }
+
+    /// <summary>
+    /// Flattens extracted directory structure (moves all files to root)
+    /// </summary>
+    private async Task FlattenExtractedFilesAsync(string destinationPath, CancellationToken cancellationToken)
+    {
+        await Task.Run(() =>
+        {
+            var allFiles = Directory.GetFiles(destinationPath, "*", SearchOption.AllDirectories);
+
+            foreach (var filePath in allFiles)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Skip files already in root
+                if (Path.GetDirectoryName(filePath) == destinationPath)
+                    continue;
+
+                var fileName = Path.GetFileName(filePath);
+                var targetPath = Path.Combine(destinationPath, fileName);
+
+                // Handle duplicates
+                var counter = 1;
+                while (File.Exists(targetPath))
+                {
+                    var nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+                    var extension = Path.GetExtension(fileName);
+                    targetPath = Path.Combine(destinationPath, $"{nameWithoutExt} ({counter}){extension}");
+                    counter++;
+                }
+
+                File.Move(filePath, targetPath);
+            }
+
+            // Delete empty subdirectories
+            var directories = Directory.GetDirectories(destinationPath);
+            foreach (var dir in directories)
+            {
+                try
+                {
+                    Directory.Delete(dir, recursive: true);
+                }
+                catch
+                {
+                    // Ignore errors (directory might not be empty)
+                }
+            }
+        }, cancellationToken);
+    }
 
     partial void OnFilterTextChanged(string value)
     {
@@ -843,8 +1169,8 @@ public partial class FileExplorerViewModel : ViewModelBase
                 return 0;
 
             // 1. Primary: Directories always first
-            bool xIsDir = entryX is DirectoryEntry;
-            bool yIsDir = entryY is DirectoryEntry;
+            bool xIsDir = entryX is DirectoryEntry || entryX is ArchiveDirectoryEntry;
+            bool yIsDir = entryY is DirectoryEntry || entryY is ArchiveDirectoryEntry;
 
             if (xIsDir && !yIsDir) return -1;
             if (!xIsDir && yIsDir) return 1;
@@ -857,6 +1183,7 @@ public partial class FileExplorerViewModel : ViewModelBase
                 "Size" => (entryX, entryY) switch
                 {
                     (FileEntry fileX, FileEntry fileY) => fileX.Size.CompareTo(fileY.Size),
+                    (ArchiveFileEntry archiveX, ArchiveFileEntry archiveY) => archiveX.UncompressedSize.CompareTo(archiveY.UncompressedSize),
                     _ => 0
                 },
 
@@ -864,6 +1191,8 @@ public partial class FileExplorerViewModel : ViewModelBase
                 {
                     (FileEntry fileX, FileEntry fileY) =>
                         string.Compare(fileX.Extension, fileY.Extension, StringComparison.OrdinalIgnoreCase),
+                    (ArchiveFileEntry archiveX, ArchiveFileEntry archiveY) =>
+                        string.Compare(Path.GetExtension(archiveX.Name), Path.GetExtension(archiveY.Name), StringComparison.OrdinalIgnoreCase),
                     _ => 0
                 },
 

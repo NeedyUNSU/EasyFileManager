@@ -1,4 +1,4 @@
-﻿using EasyFileManager.Core.Interfaces;
+using EasyFileManager.Core.Interfaces;
 using EasyFileManager.Core.Models;
 using System;
 using System.Collections.Generic;
@@ -9,34 +9,39 @@ using System.Threading.Tasks;
 
 namespace EasyFileManager.Core.Services;
 
-/// <summary>
-/// Main service for archive operations
-/// Manages plugins, caching, and provides unified API
-/// </summary>
 public class ArchiveService : IArchiveService
 {
-    private readonly List<IArchivePlugin> _plugins;
-    private readonly Dictionary<string, IArchiveReader> _openArchives;
-    private readonly Dictionary<string, string> _archivePasswords; // Session password cache
+    private readonly IEnumerable<IArchivePlugin> _plugins;
     private readonly IAppLogger<ArchiveService> _logger;
     private readonly SemaphoreSlim _cacheLock = new(1, 1);
-    private const int MaxCachedArchives = 5;
+    private readonly Dictionary<string, string> _archivePasswords = new();
 
     public ArchiveService(
         IEnumerable<IArchivePlugin> plugins,
         IAppLogger<ArchiveService> logger)
     {
-        _plugins = plugins?.ToList() ?? throw new ArgumentNullException(nameof(plugins));
+        _plugins = plugins ?? throw new ArgumentNullException(nameof(plugins));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _openArchives = new Dictionary<string, IArchiveReader>(StringComparer.OrdinalIgnoreCase);
-        _archivePasswords = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        _logger.LogInformation("ArchiveService initialized with {Count} plugins", _plugins.Count);
-        foreach (var plugin in _plugins)
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][Constructor][START]");
+        var pluginList = _plugins.ToList();
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][Constructor][PluginsCount] Count={pluginList.Count}");
+        foreach (var plugin in pluginList)
         {
-            _logger.LogDebug("Loaded plugin: {Name} (Extensions: {Extensions})",
-                plugin.Name, string.Join(", ", plugin.SupportedExtensions));
+            System.Diagnostics.Debug.WriteLine($"[ArchiveService][Constructor][Plugin] Name={plugin.Name}, Extensions={string.Join(",", plugin.SupportedExtensions)}");
         }
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][Constructor][COMPLETE]");
+    }
+
+    public bool IsArchiveFile(string filePath)
+    {
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][IsArchiveFile][START] FilePath={filePath}");
+        
+        var extension = Path.GetExtension(filePath);
+        var result = _plugins.Any(p => p.SupportsExtension(extension));
+        
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][IsArchiveFile][COMPLETE] Extension={extension}, IsArchive={result}");
+        return result;
     }
 
     public async Task<DirectoryEntry> LoadArchiveAsync(
@@ -44,19 +49,35 @@ public class ArchiveService : IArchiveService
         string innerPath = "",
         string? password = null)
     {
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][LoadArchiveAsync][START] ArchivePath={archivePath}, InnerPath={innerPath}, HasPassword={!string.IsNullOrEmpty(password)}");
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][LoadArchiveAsync][ThreadInfo] ThreadId={System.Threading.Thread.CurrentThread.ManagedThreadId}");
+        
         if (string.IsNullOrWhiteSpace(archivePath))
+        {
+            System.Diagnostics.Debug.WriteLine($"[ArchiveService][LoadArchiveAsync][ERROR] Archive path is empty");
             throw new ArgumentException("Archive path cannot be empty", nameof(archivePath));
+        }
 
         if (!File.Exists(archivePath))
+        {
+            System.Diagnostics.Debug.WriteLine($"[ArchiveService][LoadArchiveAsync][ERROR] Archive file not found");
             throw new FileNotFoundException($"Archive not found: {archivePath}");
+        }
 
         _logger.LogInformation("Loading archive: {Path}, InnerPath: {InnerPath}", archivePath, innerPath);
 
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][LoadArchiveAsync][GetOrOpenArchive] Calling GetOrOpenArchiveAsync");
+        
         // Get or open archive
         var reader = await GetOrOpenArchiveAsync(archivePath, password);
+        
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][LoadArchiveAsync][ReaderObtained] ReaderType={reader.GetType().Name}, IsEncrypted={reader.IsEncrypted}");
 
         // List entries at the specified path
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][LoadArchiveAsync][ListEntries] Calling ListEntriesAsync");
         var entries = await reader.ListEntriesAsync(innerPath);
+        var entryList = entries.ToList();
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][LoadArchiveAsync][EntriesListed] Count={entryList.Count}");
 
         // Convert to DirectoryEntry
         var archiveName = Path.GetFileName(archivePath);
@@ -68,28 +89,20 @@ public class ArchiveService : IArchiveService
             Attributes = FileAttributes.Directory
         };
 
-        foreach (var entry in entries)
+        foreach (var entry in entryList)
         {
             directoryEntry.Children.Add(entry);
         }
 
         _logger.LogDebug("Loaded {Count} entries from archive", directoryEntry.Children.Count);
+        
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][LoadArchiveAsync][COMPLETE] TotalChildren={directoryEntry.Children.Count}");
+
+        // Dispose reader (we don't cache - SharpCompress is not thread-safe)
+        reader.Dispose();
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][LoadArchiveAsync][ReaderDisposed]");
 
         return directoryEntry;
-    }
-
-    public async Task<Stream> ReadFileFromArchiveAsync(string archivePath, string innerPath)
-    {
-        if (string.IsNullOrWhiteSpace(archivePath))
-            throw new ArgumentException("Archive path cannot be empty", nameof(archivePath));
-
-        if (string.IsNullOrWhiteSpace(innerPath))
-            throw new ArgumentException("Inner path cannot be empty", nameof(innerPath));
-
-        _logger.LogDebug("Reading file from archive: {Archive}, File: {File}", archivePath, innerPath);
-
-        var reader = await GetOrOpenArchiveAsync(archivePath, null);
-        return await reader.ReadFileAsync(innerPath);
     }
 
     public async Task ExtractAsync(
@@ -99,90 +112,63 @@ public class ArchiveService : IArchiveService
         IProgress<ArchiveProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        var entryList = entries.ToList();
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][ExtractAsync][START] ArchivePath={archivePath}, Destination={destinationPath}, EntryCount={entryList.Count}");
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][ExtractAsync][ThreadInfo] ThreadId={System.Threading.Thread.CurrentThread.ManagedThreadId}");
+        
         if (string.IsNullOrWhiteSpace(archivePath))
+        {
+            System.Diagnostics.Debug.WriteLine($"[ArchiveService][ExtractAsync][ERROR] Archive path is empty");
             throw new ArgumentException("Archive path cannot be empty", nameof(archivePath));
+        }
 
         if (string.IsNullOrWhiteSpace(destinationPath))
+        {
+            System.Diagnostics.Debug.WriteLine($"[ArchiveService][ExtractAsync][ERROR] Destination path is empty");
             throw new ArgumentException("Destination path cannot be empty", nameof(destinationPath));
+        }
 
         _logger.LogInformation("Extracting from {Archive} to {Destination}", archivePath, destinationPath);
 
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][ExtractAsync][GetReader] Calling GetOrOpenArchiveAsync");
         var reader = await GetOrOpenArchiveAsync(archivePath, null);
-        await reader.ExtractAsync(entries, destinationPath, progress, cancellationToken);
-    }
-
-    public bool IsArchivePath(string path)
-    {
-        return !string.IsNullOrEmpty(path) && path.Contains("::");
-    }
-
-    public bool IsArchiveFile(string filePath)
-    {
-        if (string.IsNullOrWhiteSpace(filePath))
-            return false;
-
-        var extension = Path.GetExtension(filePath);
-        return GetPluginForExtension(extension) != null;
-    }
-
-    public (string archivePath, string innerPath) ParseArchivePath(string virtualPath)
-    {
-        if (string.IsNullOrWhiteSpace(virtualPath))
-            throw new ArgumentException("Virtual path cannot be empty", nameof(virtualPath));
-
-        if (!virtualPath.Contains("::"))
-            throw new ArgumentException("Path is not an archive path", nameof(virtualPath));
-
-        var parts = virtualPath.Split(new[] { "::" }, 2, StringSplitOptions.None);
-        return (parts[0], parts.Length > 1 ? parts[1] : string.Empty);
-    }
-
-    public IArchivePlugin? GetPluginForExtension(string extension)
-    {
-        if (string.IsNullOrWhiteSpace(extension))
-            return null;
-
-        extension = extension.ToLowerInvariant();
-        if (!extension.StartsWith("."))
-            extension = "." + extension;
-
-        return _plugins.FirstOrDefault(p => p.SupportsExtension(extension));
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][ExtractAsync][ReaderObtained] ReaderType={reader.GetType().Name}");
+        
+        try
+        {
+            System.Diagnostics.Debug.WriteLine($"[ArchiveService][ExtractAsync][CallExtract] Calling reader.ExtractAsync");
+            await reader.ExtractAsync(entryList, destinationPath, progress, cancellationToken);
+            System.Diagnostics.Debug.WriteLine($"[ArchiveService][ExtractAsync][ExtractionComplete]");
+        }
+        finally
+        {
+            reader.Dispose();
+            System.Diagnostics.Debug.WriteLine($"[ArchiveService][ExtractAsync][ReaderDisposed]");
+        }
+        
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][ExtractAsync][COMPLETE]");
     }
 
     public void CloseArchive(string archivePath)
     {
-        _cacheLock.Wait();
-        try
-        {
-            if (_openArchives.TryGetValue(archivePath, out var reader))
-            {
-                reader.Dispose();
-                _openArchives.Remove(archivePath);
-                _archivePasswords.Remove(archivePath);
-
-                _logger.LogDebug("Closed archive: {Path}", archivePath);
-            }
-        }
-        finally
-        {
-            _cacheLock.Release();
-        }
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][CloseArchive][START] ArchivePath={archivePath}");
+        // We no longer cache readers, only passwords - do nothing
+        _logger.LogDebug("CloseArchive called for: {Path} (no-op, readers are not cached)", archivePath);
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][CloseArchive][COMPLETE] No-op");
     }
 
     public void ClearCache()
     {
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][ClearCache][START]");
+        
         _cacheLock.Wait();
         try
         {
-            foreach (var reader in _openArchives.Values)
-            {
-                reader.Dispose();
-            }
-
-            _openArchives.Clear();
+            var count = _archivePasswords.Count;
             _archivePasswords.Clear();
 
-            _logger.LogInformation("Cleared archive cache");
+            _logger.LogInformation("Cleared password cache");
+            System.Diagnostics.Debug.WriteLine($"[ArchiveService][ClearCache][COMPLETE] ClearedPasswords={count}");
         }
         finally
         {
@@ -190,51 +176,64 @@ public class ArchiveService : IArchiveService
         }
     }
 
-    // ===== Private Helper Methods =====
-
     private async Task<IArchiveReader> GetOrOpenArchiveAsync(string archivePath, string? password)
     {
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetOrOpenArchiveAsync][START] ArchivePath={archivePath}, HasPassword={!string.IsNullOrEmpty(password)}");
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetOrOpenArchiveAsync][ThreadInfo] ThreadId={System.Threading.Thread.CurrentThread.ManagedThreadId}");
+        
         await _cacheLock.WaitAsync();
         try
         {
-            // Check if already open
-            if (_openArchives.TryGetValue(archivePath, out var existingReader))
-            {
-                _logger.LogDebug("Using cached archive: {Path}", archivePath);
-                return existingReader;
-            }
-
-            // Get plugin for this archive type
-            var extension = Path.GetExtension(archivePath);
-            var plugin = GetPluginForExtension(extension);
-
-            if (plugin == null)
-                throw new NotSupportedException($"No plugin found for archive type: {extension}");
-
-            if (!plugin.CanRead)
-                throw new NotSupportedException($"Plugin {plugin.Name} does not support reading");
-
+            System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetOrOpenArchiveAsync][LockAcquired]");
+            
             // Try to get cached password if no password provided
             if (string.IsNullOrEmpty(password) && _archivePasswords.TryGetValue(archivePath, out var cachedPassword))
             {
                 password = cachedPassword;
+                System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetOrOpenArchiveAsync][CachedPassword] Using cached password");
                 _logger.LogDebug("Using cached password for: {Path}", archivePath);
             }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetOrOpenArchiveAsync][NoCache] No cached password available");
+            }
 
-            // Open archive
+            // Get plugin for this archive type
+            var extension = Path.GetExtension(archivePath);
+            System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetOrOpenArchiveAsync][Extension] Extension={extension}");
+            
+            var plugin = GetPluginForExtension(extension);
+
+            if (plugin == null)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetOrOpenArchiveAsync][ERROR] No plugin for extension {extension}");
+                throw new NotSupportedException($"No plugin found for archive type: {extension}");
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetOrOpenArchiveAsync][Plugin] PluginName={plugin.Name}, CanRead={plugin.CanRead}");
+
+            if (!plugin.CanRead)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetOrOpenArchiveAsync][ERROR] Plugin does not support reading");
+                throw new NotSupportedException($"Plugin {plugin.Name} does not support reading");
+            }
+
+            // Open archive (always fresh - SharpCompress is not thread-safe)
             IArchiveReader reader;
             try
             {
+                System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetOrOpenArchiveAsync][OpenForReading] Calling plugin.OpenForReading");
                 reader = plugin.OpenForReading(archivePath, password);
+                System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetOrOpenArchiveAsync][ReaderCreated] IsEncrypted={reader.IsEncrypted}");
             }
-            catch (PasswordRequiredException)
+            catch (PasswordRequiredException ex)
             {
-                // Re-throw - caller needs to provide password
+                System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetOrOpenArchiveAsync][PasswordRequired] Throwing PasswordRequiredException");
                 throw;
             }
-            catch (InvalidPasswordException)
+            catch (InvalidPasswordException ex)
             {
-                // Remove cached password if it was wrong
+                System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetOrOpenArchiveAsync][InvalidPassword] Removing cached password and rethrowing");
                 _archivePasswords.Remove(archivePath);
                 throw;
             }
@@ -243,30 +242,46 @@ public class ArchiveService : IArchiveService
             if (reader.IsEncrypted && !string.IsNullOrEmpty(password))
             {
                 _archivePasswords[archivePath] = password;
-            }
-
-            // Add to cache
-            _openArchives[archivePath] = reader;
-
-            // Enforce cache limit
-            if (_openArchives.Count > MaxCachedArchives)
-            {
-                var oldestKey = _openArchives.Keys.First();
-                var oldestReader = _openArchives[oldestKey];
-                oldestReader.Dispose();
-                _openArchives.Remove(oldestKey);
-
-                _logger.LogDebug("Removed oldest cached archive: {Path}", oldestKey);
+                System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetOrOpenArchiveAsync][CachePassword] Password cached for future use");
             }
 
             _logger.LogInformation("Opened archive: {Path} (Encrypted: {Encrypted})",
                 archivePath, reader.IsEncrypted);
 
+            System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetOrOpenArchiveAsync][COMPLETE] Returning reader");
             return reader;
         }
         finally
         {
             _cacheLock.Release();
+            System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetOrOpenArchiveAsync][LockReleased]");
         }
+    }
+
+    private IArchivePlugin? GetPluginForExtension(string extension)
+    {
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetPluginForExtension][START] Extension={extension}");
+        
+        var plugin = _plugins.FirstOrDefault(p => p.SupportsExtension(extension));
+        
+        if (plugin != null)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetPluginForExtension][COMPLETE] PluginFound={plugin.Name}");
+        }
+        else
+        {
+            System.Diagnostics.Debug.WriteLine($"[ArchiveService][GetPluginForExtension][COMPLETE] NoPluginFound");
+        }
+        
+        return plugin;
+    }
+
+    public void Dispose()
+    {
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][Dispose][START]");
+        
+        _cacheLock?.Dispose();
+        
+        System.Diagnostics.Debug.WriteLine($"[ArchiveService][Dispose][COMPLETE]");
     }
 }

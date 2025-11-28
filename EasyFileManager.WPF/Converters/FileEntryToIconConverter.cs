@@ -14,7 +14,9 @@ public class FileEntryToIconConverter : IValueConverter
     {
         return value switch
         {
+            ArchiveDirectoryEntry => PackIconKind.FolderZip,
             DirectoryEntry => PackIconKind.Folder,
+            ArchiveFileEntry => PackIconKind.FileDocumentOutline,
             FileEntry => PackIconKind.FileDocument,
             _ => PackIconKind.File
         };
