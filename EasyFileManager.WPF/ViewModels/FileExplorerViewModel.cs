@@ -111,7 +111,7 @@ public partial class FileExplorerViewModel : ViewModelBase
 
         CurrentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         _ = LoadDrivesAsync();
-
+        
     }
 
     // ====== Commands (auto-generated [RelayCommand]) ======
@@ -973,7 +973,7 @@ public partial class FileExplorerViewModel : ViewModelBase
         }
     }
 
-
+    
     /// <summary>
     /// Helper to parse archive path (archive.zip::innerPath)
     /// </summary>

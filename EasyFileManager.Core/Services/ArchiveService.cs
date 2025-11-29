@@ -1,4 +1,4 @@
-using EasyFileManager.Core.Interfaces;
+﻿using EasyFileManager.Core.Interfaces;
 using EasyFileManager.Core.Models;
 using System;
 using System.Collections.Generic;
