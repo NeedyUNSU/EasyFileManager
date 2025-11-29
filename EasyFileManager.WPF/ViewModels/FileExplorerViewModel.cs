@@ -8,7 +8,6 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
-using System.Linq; // ✅ DODANE
 using System.Windows;
 using System.Windows.Data;
 using static MaterialDesignThemes.Wpf.Theme.ToolBar;
@@ -123,53 +122,10 @@ public partial class FileExplorerViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(CurrentPath))
             return;
 
-        // ✅ Store path to load (don't modify CurrentPath until success)
-        var pathToLoad = CurrentPath;
-
         try
         {
             IsLoading = true;
-            StatusMessage = $"Loading {pathToLoad}...";
-
-            _logger.LogInformation("Loading directory: {Path}", pathToLoad);
-
-            DirectoryEntry directory;
-
-            // Try to load, handle password requirement
-            try
-            {
-                directory = await _fileSystemService.LoadDirectoryAsync(pathToLoad, default);
-            }
-            catch (PasswordRequiredException ex)
-            {
-                _logger.LogDebug("Archive requires password: {Path}", ex.ArchivePath);
-
-                // Show password dialog
-                var archiveName = Path.GetFileName(ex.ArchivePath);
-                var passwordDialog = new ArchivePasswordDialog(archiveName)
-                {
-                    Owner = Application.Current.MainWindow
-                };
-
-                passwordDialog.ShowDialog();
-
-                if (!passwordDialog.Confirmed)
-                {
-                    StatusMessage = "Archive opening cancelled";
-                    IsLoading = false;
-                    // ✅ Don't change path - abort silently
-                    return;
-                }
-
-                // Retry with password
-                try
-                {
-                    var (archivePath, innerPath) = ParseArchivePath(pathToLoad);
-                    directory = await _archiveService.LoadArchiveAsync(archivePath, innerPath, passwordDialog.Password);
-                }
-                catch (InvalidPasswordException)
-                {
-                    _logger.LogWarning("Invalid password provided for: {Path}", ex.ArchivePath);
+            StatusMessage = $"Loading {CurrentPath}...";
 
             _logger.LogInformation("Loading directory: {Path}", CurrentPath);
             DirectoryEntry directory;
@@ -227,28 +183,6 @@ public partial class FileExplorerViewModel : ViewModelBase
                 return;
             }
 
-                    // ✅ Don't change path - user stays in previous location
-                    return;
-                }
-            }
-            catch (InvalidPasswordException ex)
-            {
-                _logger.LogWarning("Invalid password for: {Path}", ex.ArchivePath);
-
-                IsLoading = false;
-                StatusMessage = "Invalid password";
-
-                MessageBox.Show(
-                    "Invalid password.",
-                    "Invalid Password",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
-
-                // ✅ Don't change path
-                return;
-            }
-
-            // ✅ SUCCESS - Path is already set by NavigateToAsync
             AllItems.Clear();
             foreach (var entry in directory.Children)
             {
@@ -262,23 +196,23 @@ public partial class FileExplorerViewModel : ViewModelBase
             TotalSize = CalculateTotalSize(AllItems);
             StatusMessage = $"Loaded {TotalItems} items";
 
-            _logger.LogDebug("Successfully loaded {Count} items from {Path}", TotalItems, pathToLoad);
+            _logger.LogDebug("Successfully loaded {Count} items from {Path}", TotalItems, CurrentPath);
         }
         catch (DirectoryNotFoundException ex)
         {
-            _logger.LogWarning(ex.ToString(), "Directory not found: {Path}", pathToLoad);
-            StatusMessage = $"Directory not found: {pathToLoad}";
-            MessageBox.Show($"Directory not found:\n{pathToLoad}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            _logger.LogWarning(ex.ToString(), "Directory not found: {Path}", CurrentPath);
+            StatusMessage = $"Directory not found: {CurrentPath}";
+            MessageBox.Show($"Directory not found:\n{CurrentPath}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogWarning(ex.ToString(), "Access denied: {Path}", pathToLoad);
-            StatusMessage = $"Access denied: {pathToLoad}";
-            MessageBox.Show($"Access denied:\n{pathToLoad}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            _logger.LogWarning(ex.ToString(), "Access denied: {Path}", CurrentPath);
+            StatusMessage = $"Access denied: {CurrentPath}";
+            MessageBox.Show($"Access denied:\n{CurrentPath}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load directory: {Path}", pathToLoad);
+            _logger.LogError(ex, "Failed to load directory: {Path}", CurrentPath);
             StatusMessage = "Error loading directory";
             MessageBox.Show($"Error loading directory:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
@@ -344,14 +278,14 @@ public partial class FileExplorerViewModel : ViewModelBase
         if (item == null)
             return;
 
-        // ✅ Handle ArchiveEntry (navigate inside archive)
+        // Handle ArchiveEntry (navigate inside archive)
         if (item is ArchiveDirectoryEntry archiveDir)
         {
             await NavigateToAsync(archiveDir.VirtualPath);
             return;
         }
 
-        // ✅ Handle ArchiveFileEntry (open for preview or external viewer)
+        // Handle ArchiveFileEntry (open for preview or external viewer)
         if (item is ArchiveFileEntry archiveFile)
         {
             // For now, just show message - Phase 2 will add preview/extract
@@ -369,7 +303,7 @@ public partial class FileExplorerViewModel : ViewModelBase
         }
         else if (item is FileEntry fileEntry)
         {
-            // ✅ Check if file is archive
+            // Check if file is archive
             if (_fileSystemService.IsArchiveFile(fileEntry.FullPath))
             {
                 _logger.LogInformation("Opening archive: {Path}", fileEntry.FullPath);
@@ -415,8 +349,6 @@ public partial class FileExplorerViewModel : ViewModelBase
             _sortDirection = ListSortDirection.Ascending;
         }
 
-        UpdateSortDescriptions();
-
         _logger.LogDebug("Sorted by {Column} {Direction}", _sortColumn, _sortDirection);
     }
 
@@ -440,8 +372,6 @@ public partial class FileExplorerViewModel : ViewModelBase
             SortColumn = columnName;
             SortDirection = ListSortDirection.Ascending;
         }
-
-        UpdateSortDescriptions();
     }
 
     [RelayCommand]
@@ -810,6 +740,15 @@ public partial class FileExplorerViewModel : ViewModelBase
         var count = SelectedItems.Count > 0 ? SelectedItems.Count : 1;
         var itemText = count == 1 ? $"'{SelectedItem.Name}'" : $"{count} items";
 
+        //var result = MessageBox.Show(
+        //    $"Move {itemText} to '{destinationPath}'?",
+        //    "Confirm Move",
+        //    MessageBoxButton.YesNo,
+        //    MessageBoxImage.Question);
+
+        //if (result != MessageBoxResult.Yes)
+        //    return;
+
         _logger.LogInformation("Moving {Count} item(s) to {Destination}", count, destinationPath);
 
         // Progress dialog
@@ -1034,7 +973,7 @@ public partial class FileExplorerViewModel : ViewModelBase
         }
     }
 
-    
+
     /// <summary>
     /// Helper to parse archive path (archive.zip::innerPath)
     /// </summary>
@@ -1137,8 +1076,8 @@ public partial class FileExplorerViewModel : ViewModelBase
                 return 0;
 
             // 1. Primary: Directories always first
-            bool xIsDir = entryX is DirectoryEntry || entryX is ArchiveDirectoryEntry;
-            bool yIsDir = entryY is DirectoryEntry || entryY is ArchiveDirectoryEntry;
+            bool xIsDir = entryX is DirectoryEntry;
+            bool yIsDir = entryY is DirectoryEntry;
 
             if (xIsDir && !yIsDir) return -1;
             if (!xIsDir && yIsDir) return 1;
@@ -1151,7 +1090,6 @@ public partial class FileExplorerViewModel : ViewModelBase
                 "Size" => (entryX, entryY) switch
                 {
                     (FileEntry fileX, FileEntry fileY) => fileX.Size.CompareTo(fileY.Size),
-                    (ArchiveFileEntry archiveX, ArchiveFileEntry archiveY) => archiveX.UncompressedSize.CompareTo(archiveY.UncompressedSize),
                     _ => 0
                 },
 
@@ -1159,8 +1097,6 @@ public partial class FileExplorerViewModel : ViewModelBase
                 {
                     (FileEntry fileX, FileEntry fileY) =>
                         string.Compare(fileX.Extension, fileY.Extension, StringComparison.OrdinalIgnoreCase),
-                    (ArchiveFileEntry archiveX, ArchiveFileEntry archiveY) =>
-                        string.Compare(Path.GetExtension(archiveX.Name), Path.GetExtension(archiveY.Name), StringComparison.OrdinalIgnoreCase),
                     _ => 0
                 },
 
