@@ -1,4 +1,4 @@
-﻿using EasyFileManager.Core.Interfaces;
+using EasyFileManager.Core.Interfaces;
 using EasyFileManager.Core.Models;
 using SharpCompress.Archives;
 using SharpCompress.Archives.Zip;
@@ -25,7 +25,7 @@ public class ZipPlugin : IArchivePlugin
 
     public bool CanRead => true;
 
-    public bool CanWrite => false; // Phase 3-4 will implement writing
+    public bool CanWrite => false;
 
     private readonly IAppLogger<ZipPlugin> _logger;
 
@@ -41,36 +41,83 @@ public class ZipPlugin : IArchivePlugin
 
     public IArchiveReader OpenForReading(string archivePath, string? password = null)
     {
+        System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][START] ArchivePath={archivePath}, HasPassword={!string.IsNullOrEmpty(password)}");
+        System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][ThreadInfo] ThreadId={System.Threading.Thread.CurrentThread.ManagedThreadId}");
+        
         if (!File.Exists(archivePath))
+        {
+            System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][ERROR] Archive file not found");
             throw new FileNotFoundException($"Archive not found: {archivePath}");
+        }
 
         _logger.LogInformation("Opening ZIP archive: {Path}", archivePath);
 
         try
         {
+            System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][CreateOptions] Creating ReaderOptions");
             var readerOptions = new ReaderOptions
             {
                 Password = password
             };
 
+            System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][OpenArchive] Calling ZipArchive.Open");
             var archive = ZipArchive.Open(archivePath, readerOptions);
+            var entriesCount = archive.Entries.Count();
+            System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][ArchiveOpened] EntriesCount={entriesCount}");
 
             // Check if password is required
+            var encryptedCount = archive.Entries.Count(e => e.IsEncrypted);
+            System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][EncryptionCheck] EncryptedEntries={encryptedCount}, TotalEntries={entriesCount}");
+            
             if (archive.Entries.Any(e => e.IsEncrypted) && string.IsNullOrEmpty(password))
             {
+                System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][PasswordRequired] Disposing archive and throwing PasswordRequiredException");
                 archive.Dispose();
                 throw new PasswordRequiredException(archivePath);
             }
 
-            return new ZipArchiveReader(archive, archivePath, _logger);
+            if (!string.IsNullOrEmpty(password) && archive.Entries.Any(e => e.IsEncrypted))
+            {
+                System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][ValidatePassword] Testing password by reading first encrypted entry");
+                var firstEncryptedEntry = archive.Entries.First(e => e.IsEncrypted);
+                var testEntryKey = firstEncryptedEntry.Key;
+                System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][ValidatePassword] TestEntry={testEntryKey}");
+                
+                try
+                {
+                    using var testStream = firstEncryptedEntry.OpenEntryStream();
+                    var buffer = new byte[1];
+                    var bytesRead = testStream.Read(buffer, 0, 1);
+                    System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][PasswordValid] Password validated successfully, BytesRead={bytesRead}");
+                }
+                catch (CryptographicException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][InvalidPassword] CryptographicException: {ex.Message}");
+                    archive.Dispose();
+                    throw new InvalidPasswordException(archivePath, "Invalid password");
+                }
+                catch (Exception ex) when (ex.Message.Contains("password") || ex.Message.Contains("decrypt"))
+                {
+                    System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][InvalidPassword] Password exception: {ex.Message}");
+                    archive.Dispose();
+                    throw new InvalidPasswordException(archivePath, "Invalid password");
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][CreateReader] Creating ZipArchiveReader");
+            var reader = new ZipArchiveReader(archive, archivePath, _logger);
+            System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][COMPLETE] Reader created successfully");
+            return reader;
         }
         catch (InvalidFormatException ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][ERROR] InvalidFormatException: {ex.Message}");
             _logger.LogError(ex, "Invalid ZIP format: {Path}", archivePath);
             throw new InvalidDataException($"Invalid ZIP archive: {archivePath}", ex);
         }
         catch (CryptographicException ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[ZipPlugin][OpenForReading][ERROR] CryptographicException: {ex.Message}");
             _logger.LogError(ex, "Invalid password for: {Path}", archivePath);
             throw new InvalidPasswordException(archivePath, "Invalid password");
         }
@@ -92,21 +139,32 @@ internal class ZipArchiveReader : IArchiveReader
 
     public ZipArchiveReader(ZipArchive archive, string archivePath, IAppLogger<ZipPlugin> logger)
     {
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][Constructor][START] ArchivePath={archivePath}");
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][Constructor][ThreadInfo] ThreadId={System.Threading.Thread.CurrentThread.ManagedThreadId}");
+        
         _archive = archive ?? throw new ArgumentNullException(nameof(archive));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         ArchivePath = archivePath;
         IsEncrypted = _archive.Entries.Any(e => e.IsEncrypted);
+        
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][Constructor][COMPLETE] IsEncrypted={IsEncrypted}");
     }
 
     public Task<IEnumerable<ArchiveEntry>> ListEntriesAsync(string innerPath = "")
     {
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ListEntriesAsync][START] InnerPath={innerPath}");
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ListEntriesAsync][ThreadInfo] ThreadId={System.Threading.Thread.CurrentThread.ManagedThreadId}");
+        
         _logger.LogDebug("Listing entries in: {InnerPath}", innerPath);
 
         var normalizedPath = NormalizePath(innerPath);
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ListEntriesAsync][NormalizedPath] NormalizedPath={normalizedPath}");
+        
         var entries = new List<ArchiveEntry>();
 
-        // Get all entries that are direct children of innerPath
         var allEntries = _archive.Entries.Where(e => !e.IsDirectory).ToList();
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ListEntriesAsync][AllEntries] TotalNonDirectoryEntries={allEntries.Count}");
+        
         var processedDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var entry in allEntries)
@@ -119,17 +177,15 @@ internal class ZipArchiveReader : IArchiveReader
                 if (!entryPath.StartsWith(normalizedPath + "/", StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                // Remove the base path
                 entryPath = entryPath.Substring(normalizedPath.Length + 1);
             }
 
-            // Check if this is a direct child or in a subdirectory
             var slashIndex = entryPath.IndexOf('/');
 
             if (slashIndex == -1)
             {
                 // Direct file
-                entries.Add(new ArchiveFileEntry
+                var fileEntry = new ArchiveFileEntry
                 {
                     Name = Path.GetFileName(entry.Key),
                     FullPath = entry.Key,
@@ -141,7 +197,9 @@ internal class ZipArchiveReader : IArchiveReader
                     IsEncrypted = entry.IsEncrypted,
                     CompressionMethod = entry.CompressionType.ToString(),
                     Attributes = FileAttributes.Archive
-                });
+                };
+                entries.Add(fileEntry);
+                System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ListEntriesAsync][AddFile] Name={fileEntry.Name}, Size={fileEntry.UncompressedSize}");
             }
             else
             {
@@ -155,7 +213,7 @@ internal class ZipArchiveReader : IArchiveReader
                 {
                     processedDirs.Add(dirPath);
 
-                    entries.Add(new ArchiveDirectoryEntry
+                    var dirEntry = new ArchiveDirectoryEntry
                     {
                         Name = dirName,
                         FullPath = dirPath,
@@ -163,28 +221,40 @@ internal class ZipArchiveReader : IArchiveReader
                         InnerPath = dirPath,
                         LastModified = DateTime.UtcNow,
                         Attributes = FileAttributes.Directory
-                    });
+                    };
+                    entries.Add(dirEntry);
+                    System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ListEntriesAsync][AddDirectory] Name={dirEntry.Name}");
                 }
             }
         }
 
         _logger.LogDebug("Found {Count} entries in {Path}", entries.Count, normalizedPath);
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ListEntriesAsync][COMPLETE] TotalEntriesFound={entries.Count}");
 
         return Task.FromResult<IEnumerable<ArchiveEntry>>(entries);
     }
 
     public Task<Stream> ReadFileAsync(string innerPath)
     {
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ReadFileAsync][START] InnerPath={innerPath}");
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ReadFileAsync][ThreadInfo] ThreadId={System.Threading.Thread.CurrentThread.ManagedThreadId}");
+        
         var normalizedPath = NormalizePath(innerPath);
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ReadFileAsync][NormalizedPath] NormalizedPath={normalizedPath}");
+        
         var entry = _archive.Entries.FirstOrDefault(e =>
             NormalizePath(e.Key).Equals(normalizedPath, StringComparison.OrdinalIgnoreCase));
 
         if (entry == null)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ReadFileAsync][ERROR] File not found in archive");
             throw new FileNotFoundException($"File not found in archive: {innerPath}");
+        }
 
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ReadFileAsync][EntryFound] Key={entry.Key}, Size={entry.Size}");
         _logger.LogDebug("Reading file from archive: {Path}", innerPath);
 
-        // Extract to memory stream (for preview)
+        // Extract to memory stream
         var memoryStream = new MemoryStream();
         using (var entryStream = entry.OpenEntryStream())
         {
@@ -192,25 +262,33 @@ internal class ZipArchiveReader : IArchiveReader
         }
         memoryStream.Position = 0;
 
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ReadFileAsync][COMPLETE] BytesRead={memoryStream.Length}");
         return Task.FromResult<Stream>(memoryStream);
     }
 
-    public async Task ExtractAsync(
+    public Task ExtractAsync(
         IEnumerable<ArchiveEntry> entries,
         string destinationPath,
         IProgress<ArchiveProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        var entryList = entries.ToList();
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][START] Destination={destinationPath}, EntryCount={entryList.Count}");
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][ThreadInfo] ThreadId={System.Threading.Thread.CurrentThread.ManagedThreadId}");
+        
         _logger.LogInformation("Extracting {Count} entries to {Destination}",
-            entries.Count(), destinationPath);
+            entryList.Count, destinationPath);
 
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][CreateDestination] Creating destination directory");
         Directory.CreateDirectory(destinationPath);
 
-        var entriesToExtract = entries.ToList();
+        var entriesToExtract = entryList;
         var totalFiles = entriesToExtract.Count;
         var processedFiles = 0;
         var totalBytes = entriesToExtract.OfType<ArchiveFileEntry>().Sum(e => e.UncompressedSize);
         var processedBytes = 0L;
+
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][Statistics] TotalFiles={totalFiles}, TotalBytes={totalBytes}");
 
         foreach (var archiveEntry in entriesToExtract)
         {
@@ -218,6 +296,7 @@ internal class ZipArchiveReader : IArchiveReader
 
             var relativePath = archiveEntry.InnerPath;
             var outputPath = Path.Combine(destinationPath, relativePath);
+            System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][ProcessEntry] Entry={archiveEntry.Name}, OutputPath={outputPath}");
 
             // Create directory if needed
             var outputDir = Path.GetDirectoryName(outputPath);
@@ -228,13 +307,20 @@ internal class ZipArchiveReader : IArchiveReader
 
             if (archiveEntry is ArchiveFileEntry fileEntry)
             {
+                System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][ExtractFile] File={fileEntry.Name}, Size={fileEntry.UncompressedSize}");
+                
                 // Extract file
                 var normalizedPath = NormalizePath(fileEntry.InnerPath);
+                System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][FindEntry] NormalizedPath={normalizedPath}");
+                
                 var entry = _archive.Entries.FirstOrDefault(e =>
                     NormalizePath(e.Key).Equals(normalizedPath, StringComparison.OrdinalIgnoreCase));
 
                 if (entry != null)
                 {
+                    System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][EntryFound] Key={entry.Key}");
+                    
+                    // Report progress
                     progress?.Report(new ArchiveProgress
                     {
                         CurrentFile = fileEntry.Name,
@@ -244,31 +330,49 @@ internal class ZipArchiveReader : IArchiveReader
                         TotalBytes = totalBytes,
                         Status = ArchiveOperationStatus.Processing
                     });
+                    System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][ProgressReported] File={fileEntry.Name}");
 
-                    await Task.Run(() =>
+                    try
                     {
-                        using var entryStream = entry.OpenEntryStream();
-                        using var outputStream = File.Create(outputPath);
-                        entryStream.CopyTo(outputStream);
-                    }, cancellationToken);
+                        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][OpenStream] Opening entry stream");
+                        using (var entryStream = entry.OpenEntryStream())
+                        using (var outputStream = File.Create(outputPath))
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][CopyData] Copying data");
+                            entryStream.CopyTo(outputStream);
+                        }
+                        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][FileSaved] File saved successfully");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][ERROR] Exception during extraction: {ex.GetType().Name}: {ex.Message}");
+                        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][ERROR] StackTrace: {ex.StackTrace}");
+                        throw;
+                    }
 
                     // Preserve timestamp
                     if (entry.LastModifiedTime.HasValue)
                     {
                         File.SetLastWriteTime(outputPath, entry.LastModifiedTime.Value);
+                        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][TimestampSet] Timestamp={entry.LastModifiedTime.Value}");
                     }
 
                     processedBytes += fileEntry.UncompressedSize;
                 }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][WARNING] Entry not found in archive");
+                }
             }
             else if (archiveEntry is ArchiveDirectoryEntry)
             {
-                // Just create directory (already done above)
+                System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][Directory] Skipping directory (already created)");
             }
 
             processedFiles++;
         }
 
+        // Report completion
         progress?.Report(new ArchiveProgress
         {
             CurrentFile = "",
@@ -278,8 +382,12 @@ internal class ZipArchiveReader : IArchiveReader
             TotalBytes = totalBytes,
             Status = ArchiveOperationStatus.Completed
         });
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][CompletionReported]");
 
         _logger.LogInformation("Extraction completed successfully");
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][ExtractAsync][COMPLETE] Success");
+
+        return Task.CompletedTask;
     }
 
     private static string NormalizePath(string path)
@@ -292,12 +400,18 @@ internal class ZipArchiveReader : IArchiveReader
 
     public void Dispose()
     {
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][Dispose][START] ArchivePath={ArchivePath}");
+        
         if (_disposed)
+        {
+            System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][Dispose][SKIP] Already disposed");
             return;
+        }
 
         _archive?.Dispose();
         _disposed = true;
 
         _logger.LogDebug("ZipArchiveReader disposed");
+        System.Diagnostics.Debug.WriteLine($"[ZipArchiveReader][Dispose][COMPLETE]");
     }
 }

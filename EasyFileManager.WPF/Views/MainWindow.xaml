@@ -64,6 +64,10 @@
             <KeyBinding Key="R" Modifiers="Ctrl" 
                 Command="{Binding ActivePanel.LoadDirectoryCommand}"/>
 
+            <!-- Extract from Archive -->
+            <KeyBinding Key="E" Modifiers="Ctrl" 
+                Command="{Binding ActivePanel.ExtractFromArchiveCommand}"/>
+
             <!-- Delete/Rename -->
             <KeyBinding Key="Delete" 
                 Command="{Binding ActivePanel.DeleteItemCommand}"/>
@@ -398,6 +402,16 @@
                                           CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="FolderOpen"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+
+                                <Separator/>
+                                
+                                <!-- Extract (only in archive) -->
+                                <MenuItem Header="Extract... (Ctrl+E)" 
+                                    Command="{Binding ExtractFromArchiveCommand}">
+                                    <MenuItem.Icon>
+                                        <materialDesign:PackIcon Kind="TrayArrowDown"/>
                                     </MenuItem.Icon>
                                 </MenuItem>
 
@@ -752,9 +766,9 @@
 
                                 <Separator/>
 
-                                <!-- Extract -->
+                                <!-- Extract (only in archive) -->
                                 <MenuItem Header="Extract... (Ctrl+E)" 
-                                        Command="{Binding ExtractFromArchiveCommand}">
+                                    Command="{Binding ExtractFromArchiveCommand}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="TrayArrowDown"/>
                                     </MenuItem.Icon>
