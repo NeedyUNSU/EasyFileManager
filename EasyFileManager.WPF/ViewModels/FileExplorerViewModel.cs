@@ -22,6 +22,7 @@ public partial class FileExplorerViewModel : ViewModelBase
     private readonly IFileSystemService _fileSystemService;
     private readonly IAppLogger<FileExplorerViewModel> _logger;
     private readonly IFileTransferService _fileTransferService;
+    private readonly IArchiveService _archiveService;
     private TabBarViewModel? _tabBarViewModel;
 
     // ====== ObservableProperties ======
@@ -100,10 +101,12 @@ public partial class FileExplorerViewModel : ViewModelBase
     public FileExplorerViewModel(
         IFileSystemService fileSystemService,
         IFileTransferService fileTransferService,
+        IArchiveService archiveService,
         IAppLogger<FileExplorerViewModel> logger)
     {
         _fileSystemService = fileSystemService ?? throw new ArgumentNullException(nameof(fileSystemService));
         _fileTransferService = fileTransferService ?? throw new ArgumentNullException(nameof(fileTransferService));
+        _archiveService = archiveService ?? throw new ArgumentNullException(nameof(archiveService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         CurrentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -125,8 +128,60 @@ public partial class FileExplorerViewModel : ViewModelBase
             StatusMessage = $"Loading {CurrentPath}...";
 
             _logger.LogInformation("Loading directory: {Path}", CurrentPath);
+            DirectoryEntry directory;
 
-            var directory = await _fileSystemService.LoadDirectoryAsync(CurrentPath, default);
+            try
+            {
+                directory = await _fileSystemService.LoadDirectoryAsync(CurrentPath, default);
+            }
+            catch (PasswordRequiredException ex)
+            {
+                _logger.LogDebug("Archive requires password: {Path}", ex.ArchivePath);
+
+                // Show password dialog
+                var archiveName = Path.GetFileName(ex.ArchivePath);
+                var passwordDialog = new ArchivePasswordDialog(archiveName)
+                {
+                    Owner = Application.Current.MainWindow
+                };
+
+                passwordDialog.ShowDialog();
+
+                if (!passwordDialog.Confirmed)
+                {
+                    StatusMessage = "Archive opening cancelled";
+                    return;
+                }
+
+                // Retry with password
+                try
+                {
+                    var (archivePath, innerPath) = ParseArchivePath(CurrentPath);
+                    directory = await _archiveService.LoadArchiveAsync(archivePath, innerPath, passwordDialog.Password);
+                }
+                catch (InvalidPasswordException)
+                {
+                    _logger.LogWarning("Invalid password provided for: {Path}", ex.ArchivePath);
+                    MessageBox.Show(
+                        "Invalid password. Please try again.",
+                        "Invalid Password",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    StatusMessage = "Invalid password";
+                    return;
+                }
+            }
+            catch (InvalidPasswordException ex)
+            {
+                _logger.LogWarning("Invalid password for: {Path}", ex.ArchivePath);
+                MessageBox.Show(
+                    "Invalid password.",
+                    "Invalid Password",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                StatusMessage = "Invalid password";
+                return;
+            }
 
             AllItems.Clear();
             foreach (var entry in directory.Children)
@@ -183,10 +238,37 @@ public partial class FileExplorerViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(CurrentPath))
             return;
 
-        var parent = Directory.GetParent(CurrentPath);
-        if (parent != null)
+        // Check if we're in an archive
+        if (_fileSystemService.IsArchivePath(CurrentPath))
         {
-            await NavigateToAsync(parent.FullName);
+            var (archivePath, innerPath) = ParseArchivePath(CurrentPath);
+
+            if (string.IsNullOrEmpty(innerPath))
+            {
+                // We're at archive root (e.g., "C:\archive.zip::")
+                // Navigate to folder containing the archive
+                var archiveDir = Path.GetDirectoryName(archivePath);
+                if (!string.IsNullOrEmpty(archiveDir))
+                {
+                    await NavigateToAsync(archiveDir);
+                }
+            }
+            else
+            {
+                // We're in a subfolder inside archive (e.g., "C:\archive.zip::folder")
+                // Navigate to parent folder inside archive
+                var parentInnerPath = Path.GetDirectoryName(innerPath)?.Replace('\\', '/') ?? string.Empty;
+                await NavigateToAsync($"{archivePath}::{parentInnerPath}");
+            }
+        }
+        else
+        {
+            // Regular directory navigation
+            var parent = Directory.GetParent(CurrentPath);
+            if (parent != null)
+            {
+                await NavigateToAsync(parent.FullName);
+            }
         }
     }
 
@@ -751,6 +833,157 @@ public partial class FileExplorerViewModel : ViewModelBase
         {
             StatusMessage = "Move cancelled or failed";
         }
+    }
+
+    /// <summary>
+    /// Extracts selected files from archive
+    /// </summary>
+    [RelayCommand]
+    private async Task ExtractFromArchiveAsync()
+    {
+        // Check if we're inside an archive
+        if (!_fileSystemService.IsArchivePath(CurrentPath))
+        {
+            MessageBox.Show(
+                "This command is only available when browsing inside an archive.",
+                "Extract",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        // Get selected items or all items
+        var itemsToExtract = SelectedItems.Count > 0
+            ? SelectedItems.Cast<ArchiveEntry>().ToList()
+            : Items.Cast<ArchiveEntry>().ToList();
+
+        if (itemsToExtract.Count == 0)
+        {
+            MessageBox.Show(
+                "No items to extract.",
+                "Extract",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        // Parse archive path
+        var (archivePath, innerPath) = ParseArchivePath(CurrentPath);
+        var archiveName = Path.GetFileName(archivePath);
+
+        // Show extract dialog
+        var dialog = new ExtractArchiveDialog(archiveName, itemsToExtract.Count)
+        {
+            Owner = Application.Current.MainWindow
+        };
+
+        dialog.ShowDialog();
+
+        if (!dialog.Confirmed)
+            return;
+
+        var destinationPath = dialog.DestinationPath;
+
+        _logger.LogInformation("Extracting {Count} items from {Archive} to {Destination}",
+            itemsToExtract.Count, archivePath, destinationPath);
+
+        // Show progress dialog
+        var progressDialog = new FileTransferDialog("Extracting")
+        {
+            Owner = Application.Current.MainWindow
+        };
+
+        var archiveProgressAdapter = new Progress<ArchiveProgress>(ap =>
+        {
+            var fileTransferProgress = new FileTransferProgress
+            {
+                CurrentFile = ap.CurrentFile,
+                ProcessedFiles = ap.ProcessedFiles,
+                TotalFiles = ap.TotalFiles,
+                TransferredBytes = ap.ProcessedBytes,
+                TotalBytes = ap.TotalBytes
+            };
+
+            // ✅ Update dialog directly instead of through intermediate Progress
+            progressDialog.UpdateProgress(fileTransferProgress);
+        });
+
+        var extractTask = Task.Run(async () =>
+        {
+            try
+            {
+                var archiveService = _archiveService;
+
+                if (archiveService == null)
+                {
+                    throw new InvalidOperationException("Archive service not available");
+                }
+                if (dialog.PreserveStructure)
+                    await _archiveService.ExtractAsync(
+                    archivePath,
+                    itemsToExtract,
+                    destinationPath,
+                    archiveProgressAdapter,
+                    progressDialog.CancellationToken);
+                else
+                    return false;
+
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("Extract operation cancelled by user");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Extract failed");
+                progressDialog.Dispatcher.Invoke(() =>
+                {
+                    MessageBox.Show($"Failed to extract:\n{ex.Message}", "Extract Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                });
+                return false;
+            }
+        });
+
+        progressDialog.Show();
+
+        var success = await extractTask;
+
+        progressDialog.SetCompleted(success);
+
+        if (success)
+        {
+            StatusMessage = $"Extracted {itemsToExtract.Count} item(s)";
+
+            // Open folder if requested
+            if (dialog.OpenFolder && Directory.Exists(destinationPath))
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = destinationPath,
+                    UseShellExecute = true
+                });
+            }
+        }
+        else
+        {
+            StatusMessage = "Extract cancelled or failed";
+        }
+    }
+
+    
+    /// <summary>
+    /// Helper to parse archive path (archive.zip::innerPath)
+    /// </summary>
+    private (string archivePath, string innerPath) ParseArchivePath(string virtualPath)
+    {
+        if (!virtualPath.Contains("::"))
+            return (virtualPath, string.Empty);
+
+        var parts = virtualPath.Split(new[] { "::" }, 2, StringSplitOptions.None);
+        return (parts[0], parts.Length > 1 ? parts[1] : string.Empty);
     }
 
     // ====== Helper Methods ======
