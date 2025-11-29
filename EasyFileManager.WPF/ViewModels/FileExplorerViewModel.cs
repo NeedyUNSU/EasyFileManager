@@ -872,9 +872,17 @@ public partial class FileExplorerViewModel : ViewModelBase
         }
 
         // Get selected items or all items
-        var itemsToExtract = SelectedItems.Count > 0
+        var selectedItems = SelectedItems.Count > 0
             ? SelectedItems.Cast<ArchiveEntry>().ToList()
             : Items.Cast<ArchiveEntry>().ToList();
+
+        _logger.LogDebug("Initial selection count: {Count}", selectedItems.Count);
+
+        // Expand directories to include their contents
+        var (archivePath, innerPath) = ParseArchivePath(CurrentPath);
+        var itemsToExtract = await ExpandDirectoriesAsync(selectedItems, archivePath);
+
+        _logger.LogDebug("Expanded to {Count} items for extraction", itemsToExtract.Count);
 
         if (itemsToExtract.Count == 0)
         {
@@ -887,7 +895,6 @@ public partial class FileExplorerViewModel : ViewModelBase
         }
 
         // Parse archive path
-        var (archivePath, innerPath) = ParseArchivePath(CurrentPath);
         var archiveName = Path.GetFileName(archivePath);
 
         // Show extract dialog
@@ -997,6 +1004,105 @@ public partial class FileExplorerViewModel : ViewModelBase
         else
         {
             StatusMessage = "Extract cancelled or failed";
+        }
+    }
+
+    /// <summary>
+    /// Recursively expands ArchiveDirectoryEntry items to include all their contents
+    /// </summary>
+    private async Task<List<ArchiveEntry>> ExpandDirectoriesAsync(
+        List<ArchiveEntry> selectedItems,
+        string archivePath)
+    {
+        var result = new List<ArchiveEntry>();
+        var processedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in selectedItems)
+        {
+            if (item is ArchiveFileEntry fileEntry)
+            {
+                // Add file directly
+                if (!processedPaths.Contains(fileEntry.InnerPath))
+                {
+                    result.Add(fileEntry);
+                    processedPaths.Add(fileEntry.InnerPath);
+                    _logger.LogDebug("Added file: {Path}", fileEntry.InnerPath);
+                }
+            }
+            else if (item is ArchiveDirectoryEntry dirEntry)
+            {
+                // Add directory itself
+                if (!processedPaths.Contains(dirEntry.InnerPath))
+                {
+                    result.Add(dirEntry);
+                    processedPaths.Add(dirEntry.InnerPath);
+                    _logger.LogDebug("Added directory: {Path}", dirEntry.InnerPath);
+                }
+
+                // ✅ Recursively load and add directory contents
+                await ExpandDirectoryContentsAsync(
+                    archivePath,
+                    dirEntry.InnerPath,
+                    result,
+                    processedPaths);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Recursively loads all contents of a directory in archive
+    /// </summary>
+    private async Task ExpandDirectoryContentsAsync(
+        string archivePath,
+        string innerPath,
+        List<ArchiveEntry> result,
+        HashSet<string> processedPaths)
+    {
+        try
+        {
+            _logger.LogDebug("Expanding directory contents: {Path}", innerPath);
+
+            // Load directory contents from archive
+            var directoryEntry = await _archiveService.LoadArchiveAsync(
+                archivePath,
+                innerPath,
+                password: null); // Password already cached
+
+            foreach (var child in directoryEntry.Children)
+            {
+                if (child is ArchiveFileEntry fileEntry)
+                {
+                    if (!processedPaths.Contains(fileEntry.InnerPath))
+                    {
+                        result.Add(fileEntry);
+                        processedPaths.Add(fileEntry.InnerPath);
+                        _logger.LogDebug("Added file from directory: {Path}", fileEntry.InnerPath);
+                    }
+                }
+                else if (child is ArchiveDirectoryEntry childDirEntry)
+                {
+                    if (!processedPaths.Contains(childDirEntry.InnerPath))
+                    {
+                        result.Add(childDirEntry);
+                        processedPaths.Add(childDirEntry.InnerPath);
+                        _logger.LogDebug("Added subdirectory: {Path}", childDirEntry.InnerPath);
+                    }
+
+                    // ✅ Recursively expand subdirectory
+                    await ExpandDirectoryContentsAsync(
+                        archivePath,
+                        childDirEntry.InnerPath,
+                        result,
+                        processedPaths);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to expand directory: {Path}", innerPath);
+            // Continue with other items even if one directory fails
         }
     }
 

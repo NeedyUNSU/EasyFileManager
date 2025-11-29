@@ -241,22 +241,32 @@ internal class ZipArchiveReader : IArchiveReader
             var relativePath = archiveEntry.InnerPath;
             var outputPath = Path.Combine(destinationPath, relativePath);
 
-            // Create directory if needed
-            var outputDir = Path.GetDirectoryName(outputPath);
-            if (!string.IsNullOrEmpty(outputDir))
+            // ✅ Create directory based on entry type
+            if (archiveEntry is ArchiveFileEntry)
             {
-                Directory.CreateDirectory(outputDir);
+                // For files: create parent directory
+                var outputDir = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrEmpty(outputDir))
+                {
+                    Directory.CreateDirectory(outputDir);
+                }
+            }
+            else if (archiveEntry is ArchiveDirectoryEntry)
+            {
+                // For directories: create the directory itself
+                Directory.CreateDirectory(outputPath);
             }
 
             if (archiveEntry is ArchiveFileEntry fileEntry)
             {
-                // Extract file
+                // ✅ Extract file
                 var normalizedPath = NormalizePath(fileEntry.InnerPath);
                 var entry = _archive.Entries.FirstOrDefault(e =>
                     NormalizePath(e.Key).Equals(normalizedPath, StringComparison.OrdinalIgnoreCase));
 
                 if (entry != null)
                 {
+                    // Report progress
                     progress?.Report(new ArchiveProgress
                     {
                         CurrentFile = fileEntry.Name,
@@ -267,12 +277,12 @@ internal class ZipArchiveReader : IArchiveReader
                         Status = ArchiveOperationStatus.Processing
                     });
 
-                    await Task.Run(() =>
+                    // Extract file
+                    using (var entryStream = entry.OpenEntryStream())
+                    using (var outputStream = File.Create(outputPath))
                     {
-                        using var entryStream = entry.OpenEntryStream();
-                        using var outputStream = File.Create(outputPath);
                         entryStream.CopyTo(outputStream);
-                    }, cancellationToken);
+                    }
 
                     // Preserve timestamp
                     if (entry.LastModifiedTime.HasValue)
@@ -283,9 +293,39 @@ internal class ZipArchiveReader : IArchiveReader
                     processedBytes += fileEntry.UncompressedSize;
                 }
             }
-            else if (archiveEntry is ArchiveDirectoryEntry)
+            else if (archiveEntry is ArchiveDirectoryEntry dirEntry)
             {
-                // Just create directory (already done above)
+                // ✅ Handle directory
+                _logger.LogDebug("Creating directory: {Path}", outputPath);
+
+                // Report progress for directory
+                progress?.Report(new ArchiveProgress
+                {
+                    CurrentFile = dirEntry.Name + "/",
+                    ProcessedFiles = processedFiles,
+                    TotalFiles = totalFiles,
+                    ProcessedBytes = processedBytes,
+                    TotalBytes = totalBytes,
+                    Status = ArchiveOperationStatus.Processing
+                });
+
+                // Try to preserve directory timestamp (optional)
+                var normalizedPath = NormalizePath(dirEntry.InnerPath);
+                var archiveDirEntry = _archive.Entries.FirstOrDefault(e =>
+                    e.IsDirectory && NormalizePath(e.Key).Equals(normalizedPath, StringComparison.OrdinalIgnoreCase));
+
+                if (archiveDirEntry?.LastModifiedTime.HasValue == true)
+                {
+                    try
+                    {
+                        Directory.SetLastWriteTime(outputPath, archiveDirEntry.LastModifiedTime.Value);
+                    }
+                    catch
+                    {
+                        // Ignore timestamp errors for directories
+                        _logger.LogDebug("Could not set directory timestamp: {Path}", outputPath);
+                    }
+                }
             }
 
             processedFiles++;
