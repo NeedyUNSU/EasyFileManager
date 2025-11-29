@@ -50,6 +50,10 @@
             <KeyBinding Key="Tab" Modifiers="Ctrl+Shift" 
                 Command="{Binding ActivePanel.TabBar.PreviousTabCommand}"/>
 
+            <!-- Extract from Archive -->
+            <KeyBinding Key="E" Modifiers="Ctrl" 
+                Command="{Binding ActivePanel.ExtractFromArchiveCommand}"/>
+            
             <!-- Copy/Move -->
             <KeyBinding Key="F5" 
                 Command="{Binding ActivePanel.CopyToTargetPanelCommand}"/>
@@ -411,6 +415,16 @@
                                     </MenuItem.Icon>
                                 </MenuItem>
 
+                                <Separator/>
+
+                                <!-- Extract -->
+                                <MenuItem Header="Extract... (Ctrl+E)" 
+                                        Command="{Binding ExtractFromArchiveCommand}">
+                                    <MenuItem.Icon>
+                                        <materialDesign:PackIcon Kind="TrayArrowDown"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                
                                 <Separator/>
 
                                 <MenuItem Header="Copy" 

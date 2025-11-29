@@ -10,10 +10,5 @@
     <PackageReference Include="SharpCompress" Version="0.37.2" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Commands\" />
-    <Folder Include="Extensions\" />
-  </ItemGroup>
-
+  
 </Project>
