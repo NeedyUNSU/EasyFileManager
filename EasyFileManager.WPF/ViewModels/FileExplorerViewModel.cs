@@ -7,6 +7,7 @@ using EasyFileManager.WPF.Views;
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Data;
@@ -149,9 +150,12 @@ public partial class FileExplorerViewModel : ViewModelBase
 
                 if (!passwordDialog.Confirmed)
                 {
+                    RefreshCurrentPathIfArchive();
+
                     StatusMessage = "Archive opening cancelled";
                     return;
                 }
+
 
                 // Retry with password
                 try
@@ -162,25 +166,21 @@ public partial class FileExplorerViewModel : ViewModelBase
                 catch (InvalidPasswordException)
                 {
                     _logger.LogWarning("Invalid password provided for: {Path}", ex.ArchivePath);
-                    MessageBox.Show(
-                        "Invalid password. Please try again.",
-                        "Invalid Password",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning);
                     StatusMessage = "Invalid password";
-                    return;
+                    throw;
                 }
             }
             catch (InvalidPasswordException ex)
             {
                 _logger.LogWarning("Invalid password for: {Path}", ex.ArchivePath);
-                MessageBox.Show(
-                    "Invalid password.",
-                    "Invalid Password",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                //MessageBox.Show(
+                //    "Invalid password.",
+                //    "Invalid Password",
+                //    MessageBoxButton.OK,
+                //    MessageBoxImage.Warning);
+                RefreshCurrentPathIfArchive();
                 StatusMessage = "Invalid password";
-                return;
+                throw;
             }
 
             AllItems.Clear();
@@ -215,10 +215,27 @@ public partial class FileExplorerViewModel : ViewModelBase
             _logger.LogError(ex, "Failed to load directory: {Path}", CurrentPath);
             StatusMessage = "Error loading directory";
             MessageBox.Show($"Error loading directory:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            RefreshCurrentPathIfArchive();
         }
         finally
         {
             IsLoading = false;
+        }
+    }
+
+    private void RefreshCurrentPathIfArchive()
+    {
+        if (CurrentPath.Contains("::"))
+        {
+            var index = CurrentPath.IndexOf("::");
+            var subPath = CurrentPath.Substring(0, index);
+            var subIndex = 0;
+            if (subPath.Contains('\\'))
+                subIndex = subPath.LastIndexOf('\\');
+            if (subPath.Contains('/'))
+                subIndex = subPath.LastIndexOf('/');
+
+            CurrentPath = subPath.Substring(0, subIndex);
         }
     }
 
@@ -288,12 +305,14 @@ public partial class FileExplorerViewModel : ViewModelBase
         // Handle ArchiveFileEntry (open for preview or external viewer)
         if (item is ArchiveFileEntry archiveFile)
         {
-            // For now, just show message - Phase 2 will add preview/extract
-            MessageBox.Show(
-                $"File inside archive: {archiveFile.Name}\n\nUse Extract (Ctrl+E) to extract this file.",
-                "Archive File",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            await extractFromArchiveCommand.ExecuteAsync(item);
+            //openItemCommand.Execute(SelectedItem);
+            //// For now, just show message - Phase 2 will add preview/extract
+            //MessageBox.Show(
+            //    $"File inside archive: {archiveFile.Name}\n\nUse Extract (Ctrl+E) to extract this file.",
+            //    "Archive File",
+            //    MessageBoxButton.OK,
+            //    MessageBoxImage.Information);
             return;
         }
 
@@ -887,6 +906,8 @@ public partial class FileExplorerViewModel : ViewModelBase
         _logger.LogInformation("Extracting {Count} items from {Archive} to {Destination}",
             itemsToExtract.Count, archivePath, destinationPath);
 
+        bool PreserveStructure = dialog.PreserveStructure;
+
         // Show progress dialog
         var progressDialog = new FileTransferDialog("Extracting")
         {
@@ -918,15 +939,21 @@ public partial class FileExplorerViewModel : ViewModelBase
                 {
                     throw new InvalidOperationException("Archive service not available");
                 }
-                if (dialog.PreserveStructure)
+
+                if (PreserveStructure)
                     await _archiveService.ExtractAsync(
-                    archivePath,
-                    itemsToExtract,
-                    destinationPath,
-                    archiveProgressAdapter,
-                    progressDialog.CancellationToken);
+                        archivePath,
+                        itemsToExtract,
+                        destinationPath,
+                        archiveProgressAdapter,
+                        progressDialog.CancellationToken);
                 else
-                    return false;
+                    await ExtractFlattenedAsync(
+                        archivePath,
+                        itemsToExtract,
+                        destinationPath,
+                        archiveProgressAdapter,
+                        progressDialog.CancellationToken);
 
                 return true;
             }
@@ -973,7 +1000,72 @@ public partial class FileExplorerViewModel : ViewModelBase
         }
     }
 
-    
+    /// <summary>
+    /// Extracts files without preserving folder structure (all files go to root)
+    /// </summary>
+    private async Task ExtractFlattenedAsync(
+        string archivePath,
+        List<ArchiveEntry> entries,
+        string destinationPath,
+        IProgress<ArchiveProgress> progress,
+        CancellationToken cancellationToken)
+    {
+        Directory.CreateDirectory(destinationPath);
+
+        var fileEntries = entries.OfType<ArchiveFileEntry>().ToList();
+        var totalFiles = fileEntries.Count;
+        var processedFiles = 0;
+        var totalBytes = fileEntries.Sum(e => e.UncompressedSize);
+        var processedBytes = 0L;
+
+        foreach (var fileEntry in fileEntries)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Extract to root (no subfolders)
+            var fileName = Path.GetFileName(fileEntry.InnerPath);
+            var outputPath = Path.Combine(destinationPath, fileName);
+
+            // Handle duplicates
+            var counter = 1;
+            while (File.Exists(outputPath))
+            {
+                var nameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+                var extension = Path.GetExtension(fileName);
+                outputPath = Path.Combine(destinationPath, $"{nameWithoutExt} ({counter}){extension}");
+                counter++;
+            }
+
+            progress?.Report(new ArchiveProgress
+            {
+                CurrentFile = fileName,
+                ProcessedFiles = processedFiles,
+                TotalFiles = totalFiles,
+                ProcessedBytes = processedBytes,
+                TotalBytes = totalBytes,
+                Status = ArchiveOperationStatus.Processing
+            });
+
+            // Read and write file
+            using var sourceStream = await _archiveService.ReadFileFromArchiveAsync(archivePath, fileEntry.InnerPath);
+            using var destStream = File.Create(outputPath);
+            await sourceStream.CopyToAsync(destStream, cancellationToken);
+
+            processedBytes += fileEntry.UncompressedSize;
+            processedFiles++;
+        }
+
+        progress?.Report(new ArchiveProgress
+        {
+            CurrentFile = "",
+            ProcessedFiles = totalFiles,
+            TotalFiles = totalFiles,
+            ProcessedBytes = totalBytes,
+            TotalBytes = totalBytes,
+            Status = ArchiveOperationStatus.Completed
+        });
+    }
+
     /// <summary>
     /// Helper to parse archive path (archive.zip::innerPath)
     /// </summary>

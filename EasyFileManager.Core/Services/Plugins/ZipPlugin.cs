@@ -62,6 +62,28 @@ public class ZipPlugin : IArchivePlugin
                 throw new PasswordRequiredException(archivePath);
             }
 
+            // Validate password by attempting to read first encrypted entry
+            if (!string.IsNullOrEmpty(password) && archive.Entries.Any(e => e.IsEncrypted))
+            {
+                var firstEncryptedEntry = archive.Entries.First(e => e.IsEncrypted);
+                try
+                {
+                    using var testStream = firstEncryptedEntry.OpenEntryStream();
+                    var buffer = new byte[1];
+                    testStream.Read(buffer, 0, 1); // Try to read 1 byte to validate password
+                }
+                catch (CryptographicException)
+                {
+                    archive.Dispose();
+                    throw new InvalidPasswordException(archivePath, "Invalid password");
+                }
+                catch (Exception ex) when (ex.Message.Contains("password") || ex.Message.Contains("decrypt"))
+                {
+                    archive.Dispose();
+                    throw new InvalidPasswordException(archivePath, "Invalid password");
+                }
+            }
+
             return new ZipArchiveReader(archive, archivePath, _logger);
         }
         catch (InvalidFormatException ex)
