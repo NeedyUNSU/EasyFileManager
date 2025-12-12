@@ -50,12 +50,3 @@ public interface IPreviewService
         HashAlgorithmType algorithm = HashAlgorithmType.MD5,
         CancellationToken cancellationToken = default);
 }
-
-/// <summary>
-/// Hash algorithm types
-/// </summary>
-public enum HashAlgorithmType
-{
-    MD5,
-    SHA256
-}

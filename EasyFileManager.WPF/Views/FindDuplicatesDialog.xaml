@@ -1,0 +1,207 @@
+﻿<Window x:Class="EasyFileManager.WPF.Views.FindDuplicatesDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="Find Duplicates" 
+        SizeToContent="Height"
+        Width="550"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        Style="{StaticResource MaterialDesignWindow}">
+    <Border BorderBrush="{DynamicResource PrimaryHueMidBrush}"
+            BorderThickness="2"
+            CornerRadius="4">
+        <Grid Margin="24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+                <materialDesign:PackIcon Kind="FileFind" 
+                                         Width="32" 
+                                         Height="32"
+                                         Foreground="{DynamicResource PrimaryHueMidBrush}"
+                                         VerticalAlignment="Center"
+                                         Margin="0,0,12,0"/>
+                <TextBlock Text="Find Duplicate Files"
+                           Style="{StaticResource MaterialDesignHeadline5TextBlock}"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Search Scope -->
+            <StackPanel Grid.Row="1" Margin="0,0,0,16">
+                <TextBlock Text="Search Scope:"
+                           Style="{StaticResource MaterialDesignBody2TextBlock}"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,8"/>
+
+                <RadioButton x:Name="CurrentFolderRadio"
+                             Content="Current folder"
+                             IsChecked="True"
+                             Style="{StaticResource MaterialDesignRadioButton}"
+                             Margin="0,0,0,8"/>
+
+                <RadioButton x:Name="IncludeSubfoldersRadio"
+                             Content="Current folder and all subfolders"
+                             Style="{StaticResource MaterialDesignRadioButton}"
+                             Margin="0,0,0,8"/>
+
+                <RadioButton x:Name="BothPanelsRadio"
+                             Content="Both panels (left and right)"
+                             Style="{StaticResource MaterialDesignRadioButton}"
+                             Margin="0,0,0,8"/>
+
+                <!-- Current path display -->
+                <Border Background="{DynamicResource MaterialDesignTextFieldBoxBackground}"
+                        Padding="12,8"
+                        CornerRadius="4"
+                        Margin="0,8,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Scanning path:"
+                                   Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                   Opacity="0.7"/>
+                        <TextBlock x:Name="CurrentPathTextBlock"
+                                   Text="C:\Users\..."
+                                   Style="{StaticResource MaterialDesignBody2TextBlock}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Compare Method -->
+            <StackPanel Grid.Row="2" Margin="0,0,0,16">
+                <TextBlock Text="Compare Method:"
+                           Style="{StaticResource MaterialDesignBody2TextBlock}"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,8"/>
+
+                <ComboBox x:Name="CompareModeComboBox"
+                          Style="{StaticResource MaterialDesignFilledComboBox}"
+                          SelectedIndex="3"
+                          Margin="0,0,0,8">
+                    <ComboBoxItem Tag="NameOnly">
+                        <StackPanel>
+                            <TextBlock Text="File Name Only" FontWeight="SemiBold"/>
+                            <TextBlock Text="Fastest - Compares only filenames"
+                                       Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                       Opacity="0.7"/>
+                        </StackPanel>
+                    </ComboBoxItem>
+                    <ComboBoxItem Tag="NameAndSize">
+                        <StackPanel>
+                            <TextBlock Text="File Name + Size" FontWeight="SemiBold"/>
+                            <TextBlock Text="Fast - Same name and same size"
+                                       Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                       Opacity="0.7"/>
+                        </StackPanel>
+                    </ComboBoxItem>
+                    <ComboBoxItem Tag="SizeOnly">
+                        <StackPanel>
+                            <TextBlock Text="File Size Only" FontWeight="SemiBold"/>
+                            <TextBlock Text="Medium - Finds files with same size (different names)"
+                                       Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                       Opacity="0.7"/>
+                        </StackPanel>
+                    </ComboBoxItem>
+                    <ComboBoxItem Tag="ContentHash">
+                        <StackPanel>
+                            <TextBlock Text="Content (Hash) - Recommended" FontWeight="SemiBold"/>
+                            <TextBlock Text="Slow - Most accurate, compares file contents"
+                                       Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                       Opacity="0.7"/>
+                        </StackPanel>
+                    </ComboBoxItem>
+                </ComboBox>
+
+                <!-- Hash algorithm (only visible when ContentHash selected) -->
+                <ComboBox x:Name="HashAlgorithmComboBox"
+                          materialDesign:HintAssist.Hint="Hash Algorithm"
+                          Style="{StaticResource MaterialDesignFilledComboBox}"
+                          SelectedIndex="0"
+                          Margin="0,8,0,0">
+                    <ComboBoxItem Content="MD5 (Faster)" Tag="MD5"/>
+                    <ComboBoxItem Content="SHA256 (More Secure)" Tag="SHA256"/>
+                </ComboBox>
+            </StackPanel>
+
+            <!-- Options -->
+            <StackPanel Grid.Row="3" Margin="0,0,0,16">
+                <TextBlock Text="Options:"
+                           Style="{StaticResource MaterialDesignBody2TextBlock}"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,8"/>
+
+                <CheckBox x:Name="IgnoreEmptyFilesCheckBox"
+                          Content="Ignore empty files (0 bytes)"
+                          IsChecked="True"
+                          Style="{StaticResource MaterialDesignCheckBox}"
+                          Margin="0,0,0,8"/>
+
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <TextBlock Text="Minimum file size:"
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0"/>
+                    <TextBox x:Name="MinFileSizeTextBox"
+                             Text="0"
+                             Width="80"
+                             materialDesign:HintAssist.Hint="KB"
+                             Style="{StaticResource MaterialDesignFilledTextBox}"/>
+                    <TextBlock Text="KB"
+                               VerticalAlignment="Center"
+                               Margin="8,0,0,0"/>
+                </StackPanel>
+
+                <!-- Info -->
+                <Border Background="{DynamicResource MaterialDesignToolBarBackground}"
+                        Padding="12,8"
+                        CornerRadius="4"
+                        Margin="0,8,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="InformationOutline"
+                                                 Width="16"
+                                                 Height="16"
+                                                 VerticalAlignment="Center"
+                                                 Margin="0,0,8,0"
+                                                 Opacity="0.7"/>
+                        <TextBlock Text="Content hash scanning may take several minutes for large directories"
+                                   Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                   TextWrapping="Wrap"
+                                   Opacity="0.7"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Buttons -->
+            <StackPanel Grid.Row="4" 
+                        Orientation="Horizontal" 
+                        HorizontalAlignment="Right">
+                <Button Content="CANCEL"
+                        Click="CancelButton_Click"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        Margin="0,0,8,0"/>
+                <Button x:Name="ScanButton"
+                        Click="ScanButton_Click"
+                        Style="{StaticResource MaterialDesignRaisedButton}">
+                    <Button.Content>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="Magnify"
+                                                     Width="20"
+                                                     Height="20"
+                                                     VerticalAlignment="Center"
+                                                     Margin="0,0,8,0"/>
+                            <TextBlock Text="START SCAN" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button.Content>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

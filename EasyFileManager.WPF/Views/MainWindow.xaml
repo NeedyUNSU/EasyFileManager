@@ -33,6 +33,10 @@
             <KeyBinding Key="F3" 
                 Command="{Binding TogglePreviewPanelCommand}"/>
 
+            <!-- Find Duplicates -->
+            <KeyBinding Key="D" Modifiers="Ctrl+Shift" 
+            Command="{Binding ActivePanel.FindDuplicatesCommand}"/>
+
             <!-- Filter -->
             <KeyBinding Key="F" Modifiers="Ctrl" 
                 Command="{Binding ActivePanel.ShowFilterCommand}"/>
@@ -407,6 +411,16 @@
 
                                 <Separator/>
 
+                                <!-- Find Duplicates -->
+                                <MenuItem Header="Find Duplicates... (Ctrl+Shift+D)" 
+                                          Command="{Binding FindDuplicatesCommand}">
+                                    <MenuItem.Icon>
+                                        <materialDesign:PackIcon Kind="FileFind"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+
+                                <Separator/>
+
                                 <!-- Extract -->
                                 <MenuItem Header="Extract... (Ctrl+E)" 
                                           Command="{Binding ExtractFromArchiveCommand}">
@@ -758,6 +772,16 @@
                                           CommandParameter="{Binding PlacementTarget.SelectedItem, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="FolderOpen"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                
+                                <Separator/>
+
+                                <!-- Find Duplicates -->
+                                <MenuItem Header="Find Duplicates... (Ctrl+Shift+D)" 
+                                          Command="{Binding FindDuplicatesCommand}">
+                                    <MenuItem.Icon>
+                                        <materialDesign:PackIcon Kind="FileFind"/>
                                     </MenuItem.Icon>
                                 </MenuItem>
 

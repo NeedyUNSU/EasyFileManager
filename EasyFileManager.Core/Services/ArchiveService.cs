@@ -113,12 +113,12 @@ public class ArchiveService : IArchiveService
     }
 
     public async Task CreateAsync(
-    string archivePath,
-    IEnumerable<string> sourcePaths,
-    string baseDirectory,
-    ArchiveWriteOptions options,
-    IProgress<ArchiveProgress>? progress = null,
-    CancellationToken cancellationToken = default)
+        string archivePath,
+        IEnumerable<string> sourcePaths,
+        string baseDirectory,
+        ArchiveWriteOptions options,
+        IProgress<ArchiveProgress>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(archivePath))
             throw new ArgumentException("Archive path cannot be empty", nameof(archivePath));

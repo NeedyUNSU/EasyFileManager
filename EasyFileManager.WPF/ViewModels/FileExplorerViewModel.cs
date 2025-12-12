@@ -12,6 +12,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Data;
 using static MaterialDesignThemes.Wpf.Theme.ToolBar;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EasyFileManager.WPF.ViewModels;
 
@@ -23,6 +24,7 @@ public partial class FileExplorerViewModel : ViewModelBase
     private readonly IFileSystemService _fileSystemService;
     private readonly IAppLogger<FileExplorerViewModel> _logger;
     private readonly IFileTransferService _fileTransferService;
+    private readonly DuplicateFinderService _duplicateFinderService;
     private readonly IArchiveService _archiveService;
     private TabBarViewModel? _tabBarViewModel;
 
@@ -102,11 +104,13 @@ public partial class FileExplorerViewModel : ViewModelBase
     public FileExplorerViewModel(
         IFileSystemService fileSystemService,
         IFileTransferService fileTransferService,
+        DuplicateFinderService duplicateFinderService,
         IArchiveService archiveService,
         IAppLogger<FileExplorerViewModel> logger)
     {
         _fileSystemService = fileSystemService ?? throw new ArgumentNullException(nameof(fileSystemService));
         _fileTransferService = fileTransferService ?? throw new ArgumentNullException(nameof(fileTransferService));
+        _duplicateFinderService = duplicateFinderService ?? throw new ArgumentNullException(nameof(duplicateFinderService));
         _archiveService = archiveService ?? throw new ArgumentNullException(nameof(archiveService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
@@ -116,6 +120,8 @@ public partial class FileExplorerViewModel : ViewModelBase
     }
 
     // ====== Commands (auto-generated [RelayCommand]) ======
+
+    #region AutoRelayCommand
 
     [RelayCommand]
     private async Task LoadDirectoryAsync()
@@ -1329,6 +1335,141 @@ public partial class FileExplorerViewModel : ViewModelBase
         var parts = virtualPath.Split(new[] { "::" }, 2, StringSplitOptions.None);
         return (parts[0], parts.Length > 1 ? parts[1] : string.Empty);
     }
+
+    [RelayCommand]
+    private async Task FindDuplicatesAsync()
+    {
+        _logger.LogInformation("Opening Find Duplicates dialog");
+
+        // Get other panel path (for "Both panels" option)
+        string? otherPanelPath = null;
+        var mainWindow = Application.Current.MainWindow;
+        if (mainWindow?.DataContext is MainViewModel mainVm)
+        {
+            var otherPanel = mainVm.GetTargetPanel(this);
+            otherPanelPath = otherPanel.CurrentPath;
+        }
+
+        // Show configuration dialog
+        var configDialog = new FindDuplicatesDialog(CurrentPath, otherPanelPath)
+        {
+            Owner = Application.Current.MainWindow
+        };
+
+        configDialog.ShowDialog();
+
+        if (!configDialog.Confirmed)
+            return;
+
+        _logger.LogInformation("Starting duplicate scan with mode: {Mode}",
+            configDialog.Options.CompareMode);
+
+        // Determine search paths
+        var searchPaths = new List<string>();
+
+        if (configDialog.IncludeBothPanels && !string.IsNullOrEmpty(otherPanelPath))
+        {
+            searchPaths.Add(CurrentPath);
+            searchPaths.Add(otherPanelPath);
+            _logger.LogDebug("Scanning both panels: {Left} and {Right}", CurrentPath, otherPanelPath);
+        }
+        else
+        {
+            searchPaths.Add(CurrentPath);
+            _logger.LogDebug("Scanning: {Path}", CurrentPath);
+        }
+
+        // Show progress dialog
+        var progressDialog = new DuplicateScanProgressDialog
+        {
+            Owner = Application.Current.MainWindow
+        };
+
+        // ✅ Setup callback BEFORE showing dialog
+        progressDialog.OnViewResults = (duplicateGroups) =>
+        {
+            _logger.LogInformation("Opening duplicate results window with {Count} groups",
+                duplicateGroups.Count);
+
+            // Get services from DI
+            var app = (App)Application.Current;
+            var logger = app.ServiceProvider.GetRequiredService<IAppLogger<DuplicateResultsViewModel>>();
+            var previewService = app.ServiceProvider.GetRequiredService<FilePreviewService>();
+
+            // Create ViewModel
+            var resultsVm = new DuplicateResultsViewModel(
+                duplicateGroups,
+                _duplicateFinderService,
+                previewService,
+                logger);
+
+            // Open results window
+            var resultsWindow = new DuplicateResultsWindow
+            {
+                DataContext = resultsVm,
+                Owner = Application.Current.MainWindow
+            };
+
+            resultsWindow.Show();
+        };
+
+        // Start scan in background
+        var scanTask = Task.Run(async () =>
+        {
+            try
+            {
+                var progressAdapter = new Progress<DuplicateScanProgress>(scanProgress =>
+                {
+                    progressDialog.UpdateProgress(scanProgress);
+                });
+
+                var results = await _duplicateFinderService.FindDuplicatesAsync(
+                    searchPaths,
+                    configDialog.Options,
+                    progressAdapter,
+                    progressDialog.CancellationToken);
+
+                return (true, results, (string?)null);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("Duplicate scan cancelled by user");
+                return (false, null, (string?)null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Duplicate scan failed");
+                return (false, null, ex.Message);
+            }
+        });
+
+        progressDialog.Show();
+
+        // Wait for completion
+        (bool success, List<DuplicateGroup>? results, string? errorMessage) = await scanTask;
+
+        if (errorMessage != null)
+        {
+            progressDialog.Dispatcher.Invoke(() =>
+            {
+                MessageBox.Show(
+                    $"Scan failed:\n{errorMessage}",
+                    "Scan Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            });
+        }
+
+        var duplicateCount = results?.Count ?? 0;
+
+        // ✅ Pass results to dialog for callback
+        progressDialog.SetCompleted(success, duplicateCount, results);
+
+        StatusMessage = success
+            ? $"Scan complete: {duplicateCount} duplicate group(s) found"
+            : "Scan cancelled or failed";
+    }
+    #endregion
 
     // ====== Helper Methods ======
 

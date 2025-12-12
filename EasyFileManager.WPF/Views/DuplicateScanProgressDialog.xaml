@@ -1,0 +1,144 @@
+﻿<Window x:Class="EasyFileManager.WPF.Views.DuplicateScanProgressDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="Scanning for Duplicates" 
+        Height="350" 
+        Width="500"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        Style="{StaticResource MaterialDesignWindow}">
+    <Border BorderBrush="{DynamicResource PrimaryHueMidBrush}"
+            BorderThickness="2"
+            CornerRadius="4">
+        <Grid Margin="24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,16">
+                <materialDesign:PackIcon Kind="FileFind" 
+                                         Width="32" 
+                                         Height="32"
+                                         VerticalAlignment="Center"
+                                         Margin="0,0,12,0"/>
+                <TextBlock x:Name="TitleTextBlock"
+                           Text="Scanning for duplicates..."
+                           Style="{StaticResource MaterialDesignHeadline5TextBlock}"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Status -->
+            <StackPanel Grid.Row="1" Margin="0,0,0,16">
+                <TextBlock x:Name="StatusTextBlock"
+                           Text="Initializing..."
+                           Style="{StaticResource MaterialDesignBody1TextBlock}"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,4"/>
+                <TextBlock x:Name="CurrentFileTextBlock"
+                           Text=""
+                           Style="{StaticResource MaterialDesignBody2TextBlock}"
+                           TextTrimming="CharacterEllipsis"
+                           Opacity="0.7"
+                           ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+            </StackPanel>
+
+            <!-- Overall progress -->
+            <StackPanel Grid.Row="2" Margin="0,0,0,16">
+                <DockPanel Margin="0,0,0,4">
+                    <TextBlock x:Name="OverallProgressTextBlock"
+                               Text="0%"
+                               DockPanel.Dock="Right"
+                               Style="{StaticResource MaterialDesignBody2TextBlock}"/>
+                    <TextBlock Text="Overall progress:"
+                               Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                               Opacity="0.7"/>
+                </DockPanel>
+                <ProgressBar x:Name="OverallProgressBar"
+                             Height="8"
+                             Minimum="0"
+                             Maximum="100"
+                             Value="0"/>
+            </StackPanel>
+
+            <!-- Statistics -->
+            <StackPanel Grid.Row="3" Margin="0,0,0,16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Files processed -->
+                    <TextBlock Grid.Row="0" Grid.Column="0"
+                               Text="Files processed:"
+                               Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                               Opacity="0.7"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Grid.Row="0" Grid.Column="1"
+                               x:Name="FilesProcessedTextBlock"
+                               Text="0 / 0"
+                               Style="{StaticResource MaterialDesignBody2TextBlock}"
+                               HorizontalAlignment="Right"
+                               Margin="0,0,0,4"/>
+
+                    <!-- Data processed -->
+                    <TextBlock Grid.Row="1" Grid.Column="0"
+                               Text="Data processed:"
+                               Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                               Opacity="0.7"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Grid.Row="1" Grid.Column="1"
+                               x:Name="DataProcessedTextBlock"
+                               Text="0 MB / 0 MB"
+                               Style="{StaticResource MaterialDesignBody2TextBlock}"
+                               HorizontalAlignment="Right"
+                               Margin="0,0,0,4"/>
+
+                    <!-- Duplicates found -->
+                    <TextBlock Grid.Row="2" Grid.Column="0"
+                               Text="Duplicate groups found:"
+                               Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                               Opacity="0.7"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1"
+                               x:Name="DuplicatesFoundTextBlock"
+                               Text="0"
+                               Style="{StaticResource MaterialDesignBody2TextBlock}"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Right"/>
+                </Grid>
+            </StackPanel>
+
+            <!-- Spacer -->
+            <Grid Grid.Row="4"/>
+
+            <!-- Buttons -->
+            <StackPanel Grid.Row="5" 
+                        Orientation="Horizontal" 
+                        HorizontalAlignment="Right">
+                <Button x:Name="CancelButton"
+                        Content="CANCEL"
+                        Click="CancelButton_Click"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        Margin="0,0,8,0"/>
+                <Button x:Name="ViewResultsButton"
+                        Content="VIEW RESULTS"
+                        Click="ViewResultsButton_Click"
+                        Visibility="Collapsed"
+                        Style="{StaticResource MaterialDesignRaisedButton}"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

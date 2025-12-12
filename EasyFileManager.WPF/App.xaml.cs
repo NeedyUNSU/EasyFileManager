@@ -13,6 +13,7 @@ namespace EasyFileManager.WPF;
 public partial class App : Application
 {
     private ServiceProvider? _serviceProvider;
+    public IServiceProvider ServiceProvider => _serviceProvider!;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -55,6 +56,8 @@ public partial class App : Application
         services.AddSingleton<IPreviewService, PreviewService>();
         services.AddSingleton<ITabPersistenceService, TabPersistenceService>();
         services.AddSingleton<EasyFileManager.Core.Services.Plugins.ZipPlugin>();
+        services.AddSingleton<FilePreviewService>();
+        services.AddSingleton<DuplicateFinderService>();
         services.AddSingleton<IArchiveService>(sp =>
         {
             var logger = sp.GetRequiredService<IAppLogger<ArchiveService>>();
@@ -69,6 +72,7 @@ public partial class App : Application
         services.AddTransient<FileExplorerViewModel>();
         services.AddSingleton<BookmarksViewModel>();
         services.AddSingleton<PreviewPanelViewModel>();
+
 
         _serviceProvider = services.BuildServiceProvider();
 
