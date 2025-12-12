@@ -45,6 +45,17 @@ public interface IArchiveService
         IProgress<ArchiveProgress>? progress = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Create new archive from files/directories
+    /// </summary>
+    Task CreateAsync(
+        string archivePath,
+        IEnumerable<string> sourcePaths,
+        string baseDirectory,
+        ArchiveWriteOptions options,
+        IProgress<ArchiveProgress>? progress = null,
+        CancellationToken cancellationToken = default);
+
     // ===== Utility Methods =====
 
     /// <summary>

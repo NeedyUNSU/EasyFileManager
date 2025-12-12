@@ -74,6 +74,7 @@ public class ArchiveService : IArchiveService
         }
 
         _logger.LogDebug("Loaded {Count} entries from archive", directoryEntry.Children.Count);
+        reader.Dispose();
 
         return directoryEntry;
     }
@@ -109,6 +110,47 @@ public class ArchiveService : IArchiveService
 
         var reader = await GetOrOpenArchiveAsync(archivePath, null);
         await reader.ExtractAsync(entries, destinationPath, progress, cancellationToken);
+    }
+
+    public async Task CreateAsync(
+    string archivePath,
+    IEnumerable<string> sourcePaths,
+    string baseDirectory,
+    ArchiveWriteOptions options,
+    IProgress<ArchiveProgress>? progress = null,
+    CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(archivePath))
+            throw new ArgumentException("Archive path cannot be empty", nameof(archivePath));
+
+        if (sourcePaths == null || !sourcePaths.Any())
+            throw new ArgumentException("Source paths cannot be empty", nameof(sourcePaths));
+
+        _logger.LogInformation("Creating archive: {Path} from {Count} source(s)",
+            archivePath, sourcePaths.Count());
+
+        var extension = Path.GetExtension(archivePath);
+        var plugin = GetPluginForExtension(extension);
+
+        if (plugin == null)
+            throw new NotSupportedException($"No plugin found for archive type: {extension}");
+
+        if (!plugin.CanWrite)
+            throw new NotSupportedException($"Plugin {plugin.Name} does not support writing");
+
+        IArchiveWriter? writer = null;
+        try
+        {
+            writer = plugin.OpenForWriting(archivePath, options);
+            await writer.AddAsync(sourcePaths, baseDirectory, progress, cancellationToken);
+            await writer.FinalizeAsync();
+        }
+        finally
+        {
+            writer?.Dispose();
+        }
+
+        _logger.LogInformation("Archive created successfully: {Path}", archivePath);
     }
 
     public bool IsArchivePath(string path)

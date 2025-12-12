@@ -4,6 +4,8 @@ using SharpCompress.Archives;
 using SharpCompress.Archives.Zip;
 using SharpCompress.Common;
 using SharpCompress.Readers;
+using SharpCompress.Writers;
+using SharpCompress.Writers.Zip;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -25,7 +27,7 @@ public class ZipPlugin : IArchivePlugin
 
     public bool CanRead => true;
 
-    public bool CanWrite => false; // Phase 3-4 will implement writing
+    public bool CanWrite => true;
 
     private readonly IAppLogger<ZipPlugin> _logger;
 
@@ -53,7 +55,7 @@ public class ZipPlugin : IArchivePlugin
                 Password = password
             };
 
-            var archive = ZipArchive.Open(archivePath, readerOptions);
+            var archive = SharpCompress.Archives.Zip.ZipArchive.Open(archivePath, readerOptions);
 
             // Check if password is required
             if (archive.Entries.Any(e => e.IsEncrypted) && string.IsNullOrEmpty(password))
@@ -96,6 +98,20 @@ public class ZipPlugin : IArchivePlugin
             _logger.LogError(ex, "Invalid password for: {Path}", archivePath);
             throw new InvalidPasswordException(archivePath, "Invalid password");
         }
+    }
+
+    public IArchiveWriter OpenForWriting(string archivePath, ArchiveWriteOptions options)
+    {
+        _logger.LogInformation("Creating ZIP archive: {Path}", archivePath);
+
+        // Ensure directory exists
+        var directory = Path.GetDirectoryName(archivePath);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        return new ZipArchiveWriter(archivePath, options, _logger);
     }
 }
 
@@ -361,5 +377,173 @@ internal class ZipArchiveReader : IArchiveReader
         _disposed = true;
 
         _logger.LogDebug("ZipArchiveReader disposed");
+    }
+}
+
+/// <summary>
+/// Implementation of IArchiveWriter for ZIP archives
+/// </summary>
+internal class ZipArchiveWriter : IArchiveWriter
+{
+    private readonly string _archivePath;
+    private readonly ArchiveWriteOptions _options;
+    private readonly IAppLogger<ZipPlugin> _logger;
+    private bool _disposed;
+    private readonly List<string> _addedFiles = new();
+
+    public string ArchivePath => _archivePath;
+
+    public ZipArchiveWriter(
+        string archivePath,
+        ArchiveWriteOptions options,
+        IAppLogger<ZipPlugin> logger)
+    {
+        _archivePath = archivePath ?? throw new ArgumentNullException(nameof(archivePath));
+        _options = options ?? throw new ArgumentNullException(nameof(options));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    public async Task AddAsync(
+        IEnumerable<string> sourcePaths,
+        string baseDirectory,
+        IProgress<ArchiveProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Adding {Count} items to archive", sourcePaths.Count());
+
+        await Task.Run(() =>
+        {
+            // Collect all files to add BEFORE creating archive
+            var filesToAdd = new List<(string sourcePath, string entryPath)>();
+
+            foreach (var sourcePath in sourcePaths)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (File.Exists(sourcePath))
+                {
+                    var entryPath = GetRelativePath(baseDirectory, sourcePath);
+                    filesToAdd.Add((sourcePath, entryPath));
+                }
+                else if (Directory.Exists(sourcePath))
+                {
+                    AddDirectoryFiles(sourcePath, baseDirectory, filesToAdd);
+                }
+            }
+
+            var totalFiles = filesToAdd.Count;
+            var totalBytes = filesToAdd.Sum(f => new FileInfo(f.sourcePath).Length);
+            var processedFiles = 0;
+            var processedBytes = 0L;
+
+            // ✅ Create archive in using block for proper disposal
+            using (var archive = ZipArchive.Create())
+            {
+                // Add files to archive
+                foreach (var (sourcePath, entryPath) in filesToAdd)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var fileInfo = new FileInfo(sourcePath);
+
+                    progress?.Report(new ArchiveProgress
+                    {
+                        CurrentFile = Path.GetFileName(sourcePath),
+                        ProcessedFiles = processedFiles,
+                        TotalFiles = totalFiles,
+                        ProcessedBytes = processedBytes,
+                        TotalBytes = totalBytes,
+                        Status = ArchiveOperationStatus.Processing
+                    });
+
+                    archive.AddEntry(entryPath, sourcePath);
+                    _addedFiles.Add(entryPath);
+
+                    processedFiles++;
+                    processedBytes += fileInfo.Length;
+
+                    _logger.LogDebug("Added to archive: {Entry}", entryPath);
+                }
+
+                // ✅ Save archive - still inside using block
+                _logger.LogInformation("Saving archive to: {Path}", _archivePath);
+
+                var compressionType = _options.CompressionLevel == CompressionLevel.Store
+                    ? SharpCompress.Common.CompressionType.None
+                    : SharpCompress.Common.CompressionType.Deflate;
+
+                var writerOptions = new WriterOptions(compressionType)
+                {
+                    LeaveStreamOpen = false,
+                    ArchiveEncoding = new ArchiveEncoding { Default = System.Text.Encoding.UTF8 }
+                };
+
+                // ✅ Use using for output stream as well
+                using (var outputStream = File.Create(_archivePath))
+                {
+                    archive.SaveTo(outputStream, writerOptions);
+                }
+
+                // ✅ Archive is disposed here when exiting using block
+            }
+
+            progress?.Report(new ArchiveProgress
+            {
+                CurrentFile = "",
+                ProcessedFiles = totalFiles,
+                TotalFiles = totalFiles,
+                ProcessedBytes = totalBytes,
+                TotalBytes = totalBytes,
+                Status = ArchiveOperationStatus.Completed
+            });
+
+            _logger.LogInformation("Archive created successfully: {Path} ({Count} files)",
+                _archivePath, totalFiles);
+
+        }, cancellationToken);
+    }
+
+    public Task FinalizeAsync()
+    {
+        // Archive is finalized in AddAsync when SaveTo is called
+        _logger.LogDebug("Archive finalized: {Path}", _archivePath);
+        return Task.CompletedTask;
+    }
+
+    private void AddDirectoryFiles(
+        string directoryPath,
+        string baseDirectory,
+        List<(string sourcePath, string entryPath)> filesToAdd)
+    {
+        // Add all files in directory
+        foreach (var file in Directory.GetFiles(directoryPath, "*", SearchOption.AllDirectories))
+        {
+            var entryPath = GetRelativePath(baseDirectory, file);
+            filesToAdd.Add((file, entryPath));
+        }
+    }
+
+    private string GetRelativePath(string baseDirectory, string fullPath)
+    {
+        var basePath = Path.GetFullPath(baseDirectory);
+        var targetPath = Path.GetFullPath(fullPath);
+
+        if (!targetPath.StartsWith(basePath, StringComparison.OrdinalIgnoreCase))
+        {
+            // If not relative, use filename only
+            return Path.GetFileName(fullPath);
+        }
+
+        var relativePath = targetPath.Substring(basePath.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return relativePath.Replace('\\', '/'); // ZIP uses forward slashes
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        _logger.LogDebug("ZipArchiveWriter disposed");
     }
 }

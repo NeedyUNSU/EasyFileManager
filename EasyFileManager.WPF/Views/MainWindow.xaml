@@ -54,6 +54,10 @@
             <KeyBinding Key="E" Modifiers="Ctrl" 
                 Command="{Binding ActivePanel.ExtractFromArchiveCommand}"/>
             
+            <!-- Create Archive -->
+            <KeyBinding Key="A" Modifiers="Alt" 
+            Command="{Binding ActivePanel.CreateArchiveCommand}"/>
+
             <!-- Copy/Move -->
             <KeyBinding Key="F5" 
                 Command="{Binding ActivePanel.CopyToTargetPanelCommand}"/>
@@ -405,12 +409,19 @@
 
                                 <!-- Extract -->
                                 <MenuItem Header="Extract... (Ctrl+E)" 
-                                        Command="{Binding ExtractFromArchiveCommand}">
+                                          Command="{Binding ExtractFromArchiveCommand}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="TrayArrowDown"/>
                                     </MenuItem.Icon>
                                 </MenuItem>
-                                
+
+                                <MenuItem Header="Add to Archive... (Alt+A)" 
+                                          Command="{Binding CreateArchiveCommand}">
+                                    <MenuItem.Icon>
+                                        <materialDesign:PackIcon Kind="FolderZip"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+
                                 <Separator/>
 
                                 <MenuItem Header="Copy" 
@@ -757,6 +768,13 @@
                                         Command="{Binding ExtractFromArchiveCommand}">
                                     <MenuItem.Icon>
                                         <materialDesign:PackIcon Kind="TrayArrowDown"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+
+                                <MenuItem Header="Add to Archive... (Alt+A)" 
+                                          Command="{Binding CreateArchiveCommand}">
+                                    <MenuItem.Icon>
+                                        <materialDesign:PackIcon Kind="FolderZip"/>
                                     </MenuItem.Icon>
                                 </MenuItem>
 

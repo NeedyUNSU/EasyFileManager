@@ -45,6 +45,14 @@ public interface IArchivePlugin
     /// <param name="password">Optional password for encrypted archives</param>
     /// <returns>Archive reader instance</returns>
     IArchiveReader OpenForReading(string archivePath, string? password = null);
+
+    /// <summary>
+    /// Opens an archive for writing
+    /// </summary>
+    /// <param name="archivePath">Physical path to archive file</param>
+    /// <param name="options">Options to manage compression</param>
+    /// <returns>Archive writer instance</returns>
+    IArchiveWriter OpenForWriting(string archivePath, ArchiveWriteOptions options);
 }
 
 /// <summary>

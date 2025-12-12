@@ -1007,6 +1007,152 @@ public partial class FileExplorerViewModel : ViewModelBase
         }
     }
 
+    [RelayCommand]
+    private async Task CreateArchiveAsync()
+    {
+        // Validate selection
+        if (SelectedItems.Count == 0)
+        {
+            MessageBox.Show(
+                "Please select files or folders to add to archive.",
+                "No Selection",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        _logger.LogInformation("Creating archive from {Count} item(s)", SelectedItems.Count);
+
+        // Suggest archive name based on selection
+        string suggestedName;
+        if (SelectedItems.Count == 1)
+        {
+            suggestedName = SelectedItems[0].Name;
+        }
+        else
+        {
+            var parentFolder = Path.GetFileName(CurrentPath) ?? "Archive";
+            suggestedName = parentFolder;
+        }
+
+        // Show create archive dialog
+        var dialog = new CreateArchiveDialog(SelectedItems.Count, suggestedName)
+        {
+            Owner = Application.Current.MainWindow
+        };
+
+        dialog.ShowDialog();
+
+        if (!dialog.Confirmed)
+            return;
+
+        // Determine output path (same directory as current path)
+        var outputPath = Path.Combine(CurrentPath, dialog.ArchivePath);
+
+        // Check if file exists
+        if (File.Exists(outputPath))
+        {
+            var result = MessageBox.Show(
+                $"Archive '{dialog.ArchivePath}' already exists. Overwrite?",
+                "Confirm Overwrite",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result != MessageBoxResult.Yes)
+                return;
+        }
+
+        _logger.LogInformation("Creating archive: {Path}", outputPath);
+
+        // Show progress dialog
+        var progressDialog = new FileTransferDialog("Creating Archive")
+        {
+            Owner = Application.Current.MainWindow
+        };
+
+        // Get source paths
+        var sourcePaths = SelectedItems.Select(i => i.FullPath).ToList();
+        var baseDirectory = CurrentPath;
+
+        // Create archive options
+        var options = new ArchiveWriteOptions
+        {
+            CompressionLevel = dialog.CompressionLevel,
+            Password = dialog.Password
+        };
+
+        var createTask = Task.Run(async () =>
+        {
+            try
+            {
+                var progressAdapter = new Progress<ArchiveProgress>(archiveProgress =>
+                {
+                    // ✅ Use base properties, not computed ones
+                    progressDialog.UpdateProgress(new FileTransferProgress
+                    {
+                        CurrentFile = archiveProgress.CurrentFile,
+                        CurrentFileBytes = 0,
+                        CurrentFileTotalBytes = 100,
+                        TotalFiles = archiveProgress.TotalFiles,
+                        ProcessedFiles = archiveProgress.ProcessedFiles,
+                        TotalBytes = archiveProgress.TotalBytes,
+                        TransferredBytes = archiveProgress.ProcessedBytes
+                    });
+                });
+
+                await _archiveService.CreateAsync(
+                    outputPath,
+                    sourcePaths,
+                    baseDirectory,
+                    options,
+                    progressAdapter,
+                    progressDialog.CancellationToken);
+
+                return (true, (string?)null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Archive creation failed");
+                return (false, ex.Message);
+            }
+        });
+
+        progressDialog.Show();
+
+        // ✅ Explicit deconstruction
+        (bool success, string? errorMessage) = await createTask;
+
+        progressDialog.Dispatcher.Invoke(() =>
+        {
+            if (errorMessage != null)
+            {
+                MessageBox.Show(
+                    $"Failed to create archive:\n{errorMessage}",
+                    "Archive Creation Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+
+            progressDialog.SetCompleted(success);
+        });
+
+        if (success)
+        {
+            StatusMessage = $"Created archive: {dialog.ArchivePath}";
+
+            // Refresh to show new archive
+            await LoadDirectoryAsync();
+        }
+        else if (errorMessage == null)
+        {
+            StatusMessage = "Archive creation cancelled";
+        }
+        else
+        {
+            StatusMessage = "Archive creation failed";
+        }
+    }
+
     /// <summary>
     /// Recursively expands ArchiveDirectoryEntry items to include all their contents
     /// </summary>
