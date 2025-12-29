@@ -4,6 +4,7 @@ using EasyFileManager.Core.Interfaces;
 using MaterialDesignThemes.Wpf;
 using Microsoft.Extensions.DependencyInjection;
 using MaterialDesignColors.ColorManipulation;
+using EasyFileManager.WPF.Views;
 
 namespace EasyFileManager.WPF.ViewModels;
 
@@ -73,6 +74,22 @@ public partial class MainViewModel : ViewModelBase
                 System.Diagnostics.Debug.WriteLine("@@@ PreviewPanelViewModel created successfully");
             }
             return _previewPanelViewModel;
+        }
+    }
+
+    // ====== NOWE: Backup ViewModel ======
+    private BackupViewModel? _backupViewModel;
+    public BackupViewModel BackupViewModel
+    {
+        get
+        {
+            if (_backupViewModel == null)
+            {
+                _logger.LogInformation("Creating BackupViewModel via DI...");
+                _backupViewModel = _serviceProvider.GetRequiredService<BackupViewModel>();
+                _ = _backupViewModel.InitializeCommand.ExecuteAsync(null);
+            }
+            return _backupViewModel;
         }
     }
 
@@ -166,6 +183,28 @@ public partial class MainViewModel : ViewModelBase
 
         PreviewPanelViewModel.IsVisible = IsPreviewPanelVisible;
         _logger.LogDebug("Preview panel toggled: {IsVisible}", IsPreviewPanelVisible);
+    }
+
+    // ====== NOWE: Show Backup Panel Command ======
+    [RelayCommand]
+    private void ShowBackup()
+    {
+        _logger.LogInformation("Opening Backup Manager");
+
+        var backupWindow = new System.Windows.Window
+        {
+            Title = "Backup Manager",
+            Width = 1200,
+            Height = 800,
+            Content = new BackupPanel
+            {
+                DataContext = BackupViewModel
+            },
+            Owner = System.Windows.Application.Current.MainWindow,
+            WindowStartupLocation = System.Windows.WindowStartupLocation.CenterOwner
+        };
+
+        backupWindow.Show();
     }
 
     [RelayCommand]

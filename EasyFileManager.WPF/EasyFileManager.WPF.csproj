@@ -24,4 +24,8 @@
     <ProjectReference Include="..\EasyFileManager.Core\EasyFileManager.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+
 </Project>

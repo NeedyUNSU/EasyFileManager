@@ -32,10 +32,13 @@
             <!-- Preview Panel -->
             <KeyBinding Key="F3" 
                 Command="{Binding TogglePreviewPanelCommand}"/>
+            <!-- Backup -->
+            <KeyBinding Key="B" Modifiers="Ctrl" 
+                Command="{Binding ShowBackupCommand}"/>
 
             <!-- Find Duplicates -->
             <KeyBinding Key="D" Modifiers="Ctrl+Shift" 
-            Command="{Binding ActivePanel.FindDuplicatesCommand}"/>
+                Command="{Binding ActivePanel.FindDuplicatesCommand}"/>
 
             <!-- Filter -->
             <KeyBinding Key="F" Modifiers="Ctrl" 
@@ -168,6 +171,15 @@
                             <materialDesign:PackIcon Kind="WeatherSunny"/>
                         </materialDesign:ToggleButtonAssist.OnContent>
                     </ToggleButton>
+
+                    <!-- BACKUP BUTTON -->
+                    <Button Style="{StaticResource MaterialDesignIconButton}"
+                            ToolTip="Backup Manager"
+                            Foreground="{DynamicResource MaterialDesignBody}"
+                            Margin="8,0"
+                            Command="{Binding DataContext.ShowBackupCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <materialDesign:PackIcon Kind="BackupRestore" Width="20" Height="20"/>
+                    </Button>
 
                     <!-- Settings -->
                     <Button Style="{StaticResource MaterialDesignIconButton}"

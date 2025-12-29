@@ -66,12 +66,18 @@ public partial class App : Application
             return new ArchiveService(plugins, logger);
         });
 
+        // Backup Services - NOWE!
+        services.AddSingleton<IBackupStorage, BackupStorage>();
+        services.AddSingleton<IBackupService, BackupService>();
+        services.AddSingleton<IBackupScheduler, BackupScheduler>();
+
         // ViewModels
         services.AddTransient<TabViewModel>();
         services.AddSingleton<MainViewModel>();
         services.AddTransient<FileExplorerViewModel>();
         services.AddSingleton<BookmarksViewModel>();
         services.AddSingleton<PreviewPanelViewModel>();
+        services.AddTransient<BackupViewModel>(); // NOWY!
 
 
         _serviceProvider = services.BuildServiceProvider();
@@ -112,6 +118,30 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         Log.Information("=== Application exiting ===");
+
+        try
+        {
+            // Stop backup scheduler
+            var scheduler = _serviceProvider?.GetService<IBackupScheduler>();
+            if (scheduler != null && scheduler.IsRunning)
+            {
+                _ = scheduler.StopAsync().Wait(TimeSpan.FromSeconds(5));
+            }
+
+            // Save all tab sessions
+            var mainViewModel = _serviceProvider?.GetService<MainViewModel>();
+            if (mainViewModel != null)
+            {
+                _ = mainViewModel.LeftPanel.TabBar?.SaveSessionAsync().Wait(TimeSpan.FromSeconds(2));
+                _ = mainViewModel.RightPanel.TabBar?.SaveSessionAsync().Wait(TimeSpan.FromSeconds(2));
+                Log.Information("Tab sessions saved");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error during application shutdown");
+        }
+
         Log.CloseAndFlush();
         _serviceProvider?.Dispose();
         base.OnExit(e);
