@@ -44,4 +44,9 @@ public interface IBackupStorage
     /// Delete old history entries
     /// </summary>
     Task CleanupHistoryAsync(int keepDays = 90);
+
+    /// <summary>
+    /// Save backup to file after closing app
+    /// </summary>
+    Task<(bool resultJobs, bool resultHistory)> SaveBackupToFileAsync(int maxWaitSeconds);
 }

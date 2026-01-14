@@ -1,11 +1,12 @@
+using EasyFileManager.Core.Interfaces;
+using EasyFileManager.Core.Models;
+using SharpCompress.Common;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using EasyFileManager.Core.Interfaces;
-using EasyFileManager.Core.Models;
 
 namespace EasyFileManager.Core.Services;
 
@@ -18,6 +19,22 @@ public class BackupStorage : IBackupStorage
     private readonly string _storageDirectory;
     private readonly string _jobsFilePath;
     private readonly string _historyFilePath;
+    private List<BackupJob>? _jobs = null;
+
+    public List<BackupJob>? Jobs
+    {
+        get { return _jobs; }
+        set { _jobs = value; }
+    }
+
+    private List<BackupHistory>? _backupHistories = null;
+
+    public List<BackupHistory>? BackupHistories
+    {
+        get { return _backupHistories; }
+        set { _backupHistories = value; }
+    }
+
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -44,11 +61,14 @@ public class BackupStorage : IBackupStorage
 
     public async Task<List<BackupJob>> LoadJobsAsync()
     {
+        if (Jobs != null) return Jobs;
+
         try
         {
             if (!File.Exists(_jobsFilePath))
             {
                 _logger.LogInformation("No jobs file found, returning empty list");
+                Jobs = new List<BackupJob>();
                 return new List<BackupJob>();
             }
 
@@ -56,11 +76,13 @@ public class BackupStorage : IBackupStorage
             var jobs = JsonSerializer.Deserialize<List<BackupJob>>(json, JsonOptions) ?? new List<BackupJob>();
 
             _logger.LogInformation("Loaded {Count} backup jobs", jobs.Count);
+            Jobs = jobs;
             return jobs;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load backup jobs");
+            Jobs = new List<BackupJob>();
             return new List<BackupJob>();
         }
     }
@@ -87,8 +109,9 @@ public class BackupStorage : IBackupStorage
                 _logger.LogInformation("Created backup job: {Name}", job.Name);
             }
 
-            var json = JsonSerializer.Serialize(jobs, JsonOptions);
-            await File.WriteAllTextAsync(_jobsFilePath, json);
+            Jobs = jobs;
+            //var json = JsonSerializer.Serialize(jobs, JsonOptions);
+            //await File.WriteAllTextAsync(_jobsFilePath, json);
         }
         catch (Exception ex)
         {
@@ -106,8 +129,10 @@ public class BackupStorage : IBackupStorage
 
             if (removed > 0)
             {
-                var json = JsonSerializer.Serialize(jobs, JsonOptions);
-                await File.WriteAllTextAsync(_jobsFilePath, json);
+                Jobs = jobs;
+
+                //var json = JsonSerializer.Serialize(jobs, JsonOptions);
+                //await File.WriteAllTextAsync(_jobsFilePath, json);
                 _logger.LogInformation("Deleted backup job: {JobId}", jobId);
             }
         }
@@ -120,11 +145,22 @@ public class BackupStorage : IBackupStorage
 
     public async Task<List<BackupHistory>> LoadHistoryAsync(int limit = 100)
     {
+        if (BackupHistories != null)
+        {
+            var result = BackupHistories
+                .OrderByDescending(h => h.StartTime)
+                .Take(limit)
+                .ToList();
+
+            return result;
+        }
+
         try
         {
             if (!File.Exists(_historyFilePath))
             {
                 _logger.LogInformation("No history file found, returning empty list");
+                BackupHistories = new List<BackupHistory>();
                 return new List<BackupHistory>();
             }
 
@@ -138,11 +174,13 @@ public class BackupStorage : IBackupStorage
                 .ToList();
 
             _logger.LogInformation("Loaded {Count} history entries", result.Count);
+            BackupHistories = result;
             return result;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load backup history");
+            BackupHistories = new List<BackupHistory>();
             return new List<BackupHistory>();
         }
     }
@@ -175,8 +213,9 @@ public class BackupStorage : IBackupStorage
             var allHistory = await LoadHistoryAsync(int.MaxValue);
             allHistory.Add(history);
 
-            var json = JsonSerializer.Serialize(allHistory, JsonOptions);
-            await File.WriteAllTextAsync(_historyFilePath, json);
+            BackupHistories = allHistory;
+            //var json = JsonSerializer.Serialize(allHistory, JsonOptions);
+            //await File.WriteAllTextAsync(_historyFilePath, json);
 
             _logger.LogInformation("Saved history entry for job: {JobName}", history.JobName);
         }
@@ -202,8 +241,9 @@ public class BackupStorage : IBackupStorage
 
             if (removedCount > 0)
             {
-                var json = JsonSerializer.Serialize(filteredHistory, JsonOptions);
-                await File.WriteAllTextAsync(_historyFilePath, json);
+                BackupHistories = filteredHistory;
+                //var json = JsonSerializer.Serialize(filteredHistory, JsonOptions);
+                //await File.WriteAllTextAsync(_historyFilePath, json);
 
                 _logger.LogInformation("Cleaned up {Count} old history entries", removedCount);
             }
@@ -211,6 +251,77 @@ public class BackupStorage : IBackupStorage
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to cleanup backup history");
+        }
+    }
+
+    public async Task<(bool resultJobs, bool resultHistory)> SaveBackupToFileAsync(int maxWaitSeconds = 60)
+    {
+        var savingJobs = WaitAndSaveAsJson(_jobsFilePath, Jobs, maxWaitSeconds);
+        var savingHistory = WaitAndSaveAsJson(_historyFilePath, BackupHistories, maxWaitSeconds);
+
+        await Task.WhenAll(savingJobs, savingHistory);
+
+        if (savingJobs.Result)
+        {
+            _logger.LogInformation("Jobs sessions saved");
+        }
+        else
+        {
+            _logger.LogWarning("Failed to save Jobs session");
+        }
+
+
+        if (savingHistory.Result)
+        {
+            _logger.LogInformation("History sessions saved");
+        }
+        else
+        {
+            _logger.LogWarning("Failed to save History session");
+        }
+
+
+        return (savingJobs.Result, savingHistory.Result);
+    }
+
+    ///
+    /// Helpers
+    ///
+
+    private async Task<bool> WaitAndSaveAsJson<T>(string filePath,
+    T objectToSave,
+    int maxWaitSeconds = 30)
+    {
+        var startTime = DateTime.Now;
+        var timeout = TimeSpan.FromSeconds(maxWaitSeconds);
+
+        while (DateTime.Now - startTime < timeout)
+        {
+            if (await TrySaveJson(filePath, objectToSave))
+            {
+                _logger.LogInformation($"{nameof(objectToSave)} sessions saved");
+                return true;
+            }
+
+            await Task.Delay(500);
+        }
+
+        _logger.LogWarning($"Failed to save {nameof(objectToSave)} session");
+        return false;
+    }
+
+    private async Task<bool> TrySaveJson<T>(string filePath, T objectToSave)
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(objectToSave, JsonOptions);
+            await File.WriteAllTextAsync(filePath, json);
+
+            return true;
+        }
+        catch (IOException)
+        {
+            return false;
         }
     }
 }
