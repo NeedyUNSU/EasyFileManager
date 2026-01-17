@@ -23,30 +23,30 @@
 
     <Grid>
 
-        <Grid.InputBindings>
+        <!--<Grid.InputBindings>
 
-            <!-- Bookmarks -->
+            --><!-- Bookmarks --><!--
             <KeyBinding Key="D" Modifiers="Ctrl" 
             Command="{Binding ToggleBookmarksFlyoutCommand}"/>
 
-            <!-- Preview Panel -->
+            --><!-- Preview Panel --><!--
             <KeyBinding Key="F3" 
                 Command="{Binding TogglePreviewPanelCommand}"/>
-            <!-- Backup -->
+            --><!-- Backup --><!--
             <KeyBinding Key="B" Modifiers="Ctrl" 
                 Command="{Binding ShowBackupCommand}"/>
 
-            <!-- Find Duplicates -->
+            --><!-- Find Duplicates --><!--
             <KeyBinding Key="D" Modifiers="Ctrl+Shift" 
                 Command="{Binding ActivePanel.FindDuplicatesCommand}"/>
 
-            <!-- Filter -->
+            --><!-- Filter --><!--
             <KeyBinding Key="F" Modifiers="Ctrl" 
                 Command="{Binding ActivePanel.ShowFilterCommand}"/>
             <KeyBinding Key="Escape" 
                 Command="{Binding ActivePanel.HideFilterCommand}"/>
 
-            <!-- Tab Management -->
+            --><!-- Tab Management --><!--
             <KeyBinding Key="T" Modifiers="Ctrl" 
                 Command="{Binding ActivePanel.TabBar.NewTabCommand}"/>
             <KeyBinding Key="W" Modifiers="Ctrl" 
@@ -57,31 +57,31 @@
             <KeyBinding Key="Tab" Modifiers="Ctrl+Shift" 
                 Command="{Binding ActivePanel.TabBar.PreviousTabCommand}"/>
 
-            <!-- Extract from Archive -->
+            --><!-- Extract from Archive --><!--
             <KeyBinding Key="E" Modifiers="Ctrl" 
                 Command="{Binding ActivePanel.ExtractFromArchiveCommand}"/>
-            
-            <!-- Create Archive -->
+
+            --><!-- Create Archive --><!--
             <KeyBinding Key="A" Modifiers="Alt" 
             Command="{Binding ActivePanel.CreateArchiveCommand}"/>
 
-            <!-- Copy/Move -->
+            --><!-- Copy/Move --><!--
             <KeyBinding Key="F5" 
                 Command="{Binding ActivePanel.CopyToTargetPanelCommand}"/>
             <KeyBinding Key="F6" 
                 Command="{Binding ActivePanel.MoveToTargetPanelCommand}"/>
 
-            <!-- Refresh -->
+            --><!-- Refresh --><!--
             <KeyBinding Key="R" Modifiers="Ctrl" 
                 Command="{Binding ActivePanel.LoadDirectoryCommand}"/>
 
-            <!-- Delete/Rename -->
+            --><!-- Delete/Rename --><!--
             <KeyBinding Key="Delete" 
                 Command="{Binding ActivePanel.DeleteItemCommand}"/>
             <KeyBinding Key="F2" 
                 Command="{Binding ActivePanel.RenameItemCommand}" 
                 CommandParameter="{Binding ActivePanel.SelectedItem}"/>
-        </Grid.InputBindings>
+        </Grid.InputBindings>-->
 
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

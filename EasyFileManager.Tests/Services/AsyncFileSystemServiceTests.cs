@@ -31,7 +31,7 @@ public class AsyncFileSystemServiceTests
         try
         {
             // Act
-            var result = await _service.LoadDirectoryAsync(tempDir, default);
+            var result = await _service.LoadDirectoryAsync(tempDir, default, true);
 
             // Assert
             result.Should().NotBeNull();
@@ -53,7 +53,7 @@ public class AsyncFileSystemServiceTests
 
         // Act & Assert
         await Assert.ThrowsAsync<DirectoryNotFoundException>(()
-            => _service.LoadDirectoryAsync(invalidPath, default));
+            => _service.LoadDirectoryAsync(invalidPath, default, true));
     }
 
     [Fact]

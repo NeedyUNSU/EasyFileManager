@@ -1,0 +1,533 @@
+﻿<Window x:Class="EasyFileManager.WPF.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:vm="clr-namespace:EasyFileManager.WPF.ViewModels"
+        Title="Settings" 
+        Height="700" 
+        Width="900"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource MaterialDesignPaper}"
+        FontFamily="{DynamicResource MaterialDesignFont}">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <materialDesign:ColorZone Grid.Row="0"
+                                  Mode="PrimaryMid"
+                                  Padding="16">
+            <DockPanel>
+                <materialDesign:PackIcon Kind="Cog" 
+                                         Width="32" 
+                                         Height="32"
+                                         VerticalAlignment="Center"
+                                         DockPanel.Dock="Left"
+                                         Margin="0,0,12,0"/>
+                <TextBlock Text="Settings"
+                           Style="{StaticResource MaterialDesignHeadline5TextBlock}"
+                           VerticalAlignment="Center"/>
+            </DockPanel>
+        </materialDesign:ColorZone>
+
+        <!-- Content -->
+        <TabControl Grid.Row="1"
+                    Style="{StaticResource MaterialDesignNavigationRailTabControl}"
+                    Margin="0">
+
+            <!-- Appearance Tab -->
+            <TabItem Width="100">
+                <TabItem.Header>
+                    <StackPanel>
+                        <materialDesign:PackIcon Kind="Palette" 
+                                                 Width="24" 
+                                                 Height="24"
+                                                 HorizontalAlignment="Center"/>
+                        <TextBlock Text="Appearance" 
+                                   HorizontalAlignment="Center"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24">
+                    <StackPanel>
+                        <TextBlock Text="Appearance"
+                                   Style="{StaticResource MaterialDesignHeadline6TextBlock}"
+                                   Foreground="{DynamicResource MaterialDesignBody}"
+                                   Margin="0,0,0,16"/>
+
+                        <!-- Theme -->
+                        <GroupBox Header="Theme" 
+                                  Style="{StaticResource MaterialDesignCardGroupBox}"
+                                  Margin="0,0,0,16">
+                            <StackPanel Margin="16">
+                                <ComboBox materialDesign:HintAssist.Hint="Theme"
+                                          Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                          SelectedValue="{Binding Appearance.Theme, Mode=TwoWay}"
+                                          SelectedValuePath="Tag"
+                                          Margin="0,0,0,16">
+                                    <ComboBoxItem Content="Light" Tag="Light"/>
+                                    <ComboBoxItem Content="Dark" Tag="Dark"/>
+                                    <ComboBoxItem Content="System" Tag="System"/>
+                                </ComboBox>
+
+                                <TextBox materialDesign:HintAssist.Hint="Accent Color (hex)"
+                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                         Text="{Binding Appearance.AccentColor, UpdateSourceTrigger=PropertyChanged}"
+                                         Margin="0,0,0,16"/>
+
+                                <ComboBox materialDesign:HintAssist.Hint="Font Size"
+                                          Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                          SelectedValue="{Binding Appearance.FontSize, Mode=TwoWay}"
+                                          SelectedValuePath="Tag">
+                                    <ComboBoxItem Content="Small" Tag="Small"/>
+                                    <ComboBoxItem Content="Medium" Tag="Medium"/>
+                                    <ComboBoxItem Content="Large" Tag="Large"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- File Display -->
+                        <GroupBox Header="Files And Directories Display" 
+                                  Style="{StaticResource MaterialDesignCardGroupBox}"
+                                  Margin="0,0,0,16">
+                            <StackPanel Margin="16">
+                                <CheckBox Content="Show file extensions"
+                                          IsChecked="{Binding Appearance.ShowFileExtensions}"
+                                          Margin="0,0,0,8"/>
+                                <CheckBox Content="Show hidden files and directories"
+                                          IsChecked="{Binding Appearance.ShowHiddenFiles}"
+                                          Margin="0,0,0,8"/>
+                                <CheckBox Content="Show system files and directories"
+                                          IsChecked="{Binding Appearance.ShowSystemFiles}"
+                                          Margin="0,0,0,8"/>
+                                <!--<CheckBox Content="Use compact view"
+                                          IsChecked="{Binding Appearance.CompactView}"
+                                          Margin="0,0,0,16"/>-->
+
+                                <!--<TextBlock Text="Icon Size"
+                                           Foreground="{DynamicResource MaterialDesignBody}"
+                                           Margin="0,0,0,8"/>
+                                <Slider Minimum="16" 
+                                        Maximum="48" 
+                                        Value="{Binding Appearance.IconSize}"
+                                        TickFrequency="8"
+                                        IsSnapToTickEnabled="True"
+                                        TickPlacement="BottomRight"/>-->
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Startup & Behavior Tab -->
+            <!--<TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <materialDesign:PackIcon Kind="CogPlay" 
+                                                 Width="24" 
+                                                 Height="24"
+                                                 HorizontalAlignment="Center"/>
+                        <TextBlock Text="Behavior" 
+                                   HorizontalAlignment="Center"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24">
+                    <StackPanel>
+                        --><!--Startup And--><!--
+                        <TextBlock Text="Behavior"
+                                   Style="{StaticResource MaterialDesignHeadline6TextBlock}"
+                                   Foreground="{DynamicResource MaterialDesignBody}"
+                                   Margin="0,0,0,16"/>
+
+                        --><!-- Startup -->
+                        <!--<GroupBox Header="Startup" 
+                                  Style="{StaticResource MaterialDesignCardGroupBox}"
+                                  Margin="0,0,0,16">
+                            <StackPanel Margin="16">
+                                -->
+                        <!--<CheckBox Content="Start with Windows"
+                                          IsChecked="{Binding Behavior.StartWithWindows}"
+                                          Margin="0,0,0,8"/>-->
+                        <!--
+                                <CheckBox Content="Remember last session (restore tabs)"
+                                          IsChecked="{Binding Behavior.RememberLastSession}"
+                                          Margin="0,0,0,8"/>
+                                <CheckBox Content="Restore window position"
+                                          IsChecked="{Binding Behavior.RestoreWindowPosition}"/>
+                            </StackPanel>
+                        </GroupBox>-->
+
+                        <!-- Default Paths -->
+
+
+                        <!-- Window Behavior -->
+                        <!--<GroupBox Header="Window Behavior" 
+                                  Style="{StaticResource MaterialDesignCardGroupBox}">
+                            <StackPanel Margin="16">
+                                <CheckBox Content="Minimize to system tray"
+                                          IsChecked="{Binding Behavior.MinimizeToTray}"
+                                          Margin="0,0,0,8"/>
+                                <CheckBox Content="Allow only one instance"
+                                          IsChecked="{Binding Behavior.SingleInstance}"/>
+                            </StackPanel>
+                        </GroupBox>--><!--
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>-->
+
+            <!-- Tabs Tab -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <materialDesign:PackIcon Kind="Tab" 
+                                                 Width="24" 
+                                                 Height="24"
+                                                 HorizontalAlignment="Center"/>
+                        <TextBlock Text="Tabs" 
+                                   HorizontalAlignment="Center"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24">
+                    <StackPanel>
+                        <TextBlock Text="Tab Settings"
+                                   Style="{StaticResource MaterialDesignHeadline6TextBlock}"
+                                   Foreground="{DynamicResource MaterialDesignBody}"
+                                   Margin="0,0,0,16"/>
+
+                        <GroupBox Header="Default Panel Paths" 
+                            Style="{StaticResource MaterialDesignCardGroupBox}"
+                            Margin="0,0,0,16">
+                            <StackPanel Margin="16">
+                                <TextBlock Text="Leave empty to use user profile folder"
+                                    Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                                    Foreground="{DynamicResource MaterialDesignBodyLight}"
+                                    Margin="0,0,0,16"/>
+
+                                <DockPanel Margin="0,0,0,16">
+                                    <Button DockPanel.Dock="Right"
+                                        Content="Browse..."
+                                        Command="{Binding Behavior.BrowseLeftPathCommand}"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Margin="8,0,0,0"/>
+                                    <TextBox materialDesign:HintAssist.Hint="Left Panel Default Path"
+                                        Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                        Text="{Binding Behavior.DefaultLeftPanelPath, UpdateSourceTrigger=PropertyChanged}"/>
+                                </DockPanel>
+
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right"
+                                        Content="Browse..."
+                                        Command="{Binding Behavior.BrowseRightPathCommand}"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Margin="8,0,0,0"/>
+                                    <TextBox materialDesign:HintAssist.Hint="Right Panel Default Path"
+                                    Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                    Text="{Binding Behavior.DefaultRightPanelPath, UpdateSourceTrigger=PropertyChanged}"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Tab Behavior" 
+                                  Style="{StaticResource MaterialDesignCardGroupBox}"
+                                  Margin="0,0,0,16">
+                            <StackPanel Margin="16">
+                                <!--<TextBox materialDesign:HintAssist.Hint="New Tab Default Path (empty = current)"
+                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                         Text="{Binding Tabs.NewTabDefaultPath, UpdateSourceTrigger=PropertyChanged}"
+                                         Margin="0,0,0,16"/>-->
+
+                                <TextBox materialDesign:HintAssist.Hint="Max Tabs Per Panel (5-20)"
+                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                         Text="{Binding Tabs.MaxTabsPerPanel, UpdateSourceTrigger=PropertyChanged}"
+                                         Margin="0,0,0,16"/>
+
+                                <CheckBox Content="Confirm before closing tab"
+                                          IsChecked="{Binding Tabs.ConfirmTabClose}"
+                                          Margin="0,0,0,8"/>
+                                <CheckBox Content="Duplicate tab opens same path"
+                                          IsChecked="{Binding Tabs.DuplicateTabSamePath}"
+                                          Margin="0,0,0,8"/>
+                                <CheckBox Content="Middle-click closes tab"
+                                          IsChecked="{Binding Tabs.MiddleClickClosesTab}"
+                                          Margin="0,0,0,8"/>
+                                <CheckBox Content="Double-click on tab bar creates new tab"
+                                          IsChecked="{Binding Tabs.DoubleClickCreatesTab}"
+                                          Margin="0,0,0,16"/>
+
+                                <TextBox materialDesign:HintAssist.Hint="Auto-save interval (seconds, 0 = disabled)"
+                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                         Text="{Binding Tabs.AutoSaveIntervalSeconds, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- File Operations Tab -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <materialDesign:PackIcon Kind="FileDocument" 
+                                                 Width="24" 
+                                                 Height="24"
+                                                 HorizontalAlignment="Center"/>
+                        <TextBlock Text="Entries" 
+                                   HorizontalAlignment="Center"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24">
+                    <StackPanel>
+                        <TextBlock Text="File And Directory Operations"
+                                   Style="{StaticResource MaterialDesignHeadline6TextBlock}"
+                                   Foreground="{DynamicResource MaterialDesignBody}"
+                                   Margin="0,0,0,16"/>
+
+                        <!-- Confirmations -->
+                        <GroupBox Header="Confirmations" 
+                                  Style="{StaticResource MaterialDesignCardGroupBox}"
+                                  Margin="0,0,0,16">
+                            <StackPanel Margin="16">
+                                <CheckBox Content="Confirm before deleting files"
+                                          IsChecked="{Binding FileOperations.ConfirmDelete}"
+                                          Margin="0,0,0,8"/>
+                                <CheckBox Content="Confirm before overwriting files"
+                                          IsChecked="{Binding FileOperations.ConfirmOverwrite}"
+                                          Margin="0,0,0,8"/>
+                                <CheckBox Content="Use Recycle Bin (instead of permanent delete)"
+                                          IsChecked="{Binding FileOperations.UseRecycleBin}"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Copy/Move Options -->
+                        <GroupBox Header="Copy And Move" 
+                                  Style="{StaticResource MaterialDesignCardGroupBox}"
+                                  Margin="0,0,0,16">
+                            <StackPanel Margin="16">
+                                <TextBox materialDesign:HintAssist.Hint="Copy Buffer Size (KB)"
+                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                         Text="{Binding FileOperations.CopyBufferSizeKB, UpdateSourceTrigger=PropertyChanged}"
+                                         Margin="0,0,0,16"/>
+
+                                <CheckBox Content="Show progress dialog for operations"
+                                          IsChecked="{Binding FileOperations.ShowProgressDialog}"
+                                          Margin="0,0,0,8"/>
+                                <CheckBox Content="Verify file integrity after copy"
+                                          IsChecked="{Binding FileOperations.VerifyAfterCopy}"
+                                          Margin="0,0,0,8"/>
+                                <CheckBox Content="Preserve file timestamps"
+                                          IsChecked="{Binding FileOperations.PreserveTimestamps}"
+                                          Margin="0,0,0,8"/>
+                                <CheckBox Content="Preserve file attributes"
+                                          IsChecked="{Binding FileOperations.PreserveAttributes}"/>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Keyboard Shortcuts Tab -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <materialDesign:PackIcon Kind="Keyboard" 
+                                                 Width="24" 
+                                                 Height="24"
+                                                 HorizontalAlignment="Center"/>
+                        <TextBlock Text="Shortcuts" 
+                                   HorizontalAlignment="Center"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0"
+                               Text="Keyboard Shortcuts"
+                               Style="{StaticResource MaterialDesignHeadline6TextBlock}"
+                               Foreground="{DynamicResource MaterialDesignBody}"
+                               Margin="24,24,24,16"/>
+
+                    <DataGrid Grid.Row="1"
+                              ItemsSource="{Binding KeyboardShortcuts.Shortcuts}"
+                              SelectedItem="{Binding KeyboardShortcuts.SelectedShortcut}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              IsReadOnly="True"
+                              SelectionMode="Single"
+                              Margin="24,0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Command" 
+                                                Binding="{Binding DisplayName}" 
+                                                Width="200"/>
+                            <DataGridTextColumn Header="Shortcut" 
+                                                Binding="{Binding Shortcut}" 
+                                                Width="150"/>
+                            <DataGridTextColumn Header="Description" 
+                                                Binding="{Binding Description}" 
+                                                Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel Grid.Row="2"
+                                Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Margin="24,16">
+                        <Button Content="EDIT"
+                                Command="{Binding KeyboardShortcuts.EditShortcutCommand}"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"
+                                Margin="0,0,8,0"/>
+                        <Button Content="RESET"
+                                Command="{Binding KeyboardShortcuts.ResetShortcutCommand}"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"
+                                Margin="0,0,8,0"/>
+                        <Button Content="RESET ALL"
+                                Command="{Binding KeyboardShortcuts.ResetAllShortcutsCommand}"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- Advanced Tab -->
+            <!--<TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <materialDesign:PackIcon Kind="TuneVariant" 
+                                                 Width="24" 
+                                                 Height="24"
+                                                 HorizontalAlignment="Center"/>
+                        <TextBlock Text="Advanced" 
+                                   HorizontalAlignment="Center"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+                </TabItem.Header>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24">
+                    <StackPanel>
+                        <TextBlock Text="Advanced Settings"
+                                   Style="{StaticResource MaterialDesignHeadline6TextBlock}"
+                                   Foreground="{DynamicResource MaterialDesignBody}"
+                                   Margin="0,0,0,16"/>
+
+                        -->
+            <!-- Logging -->
+            <!--
+                        <GroupBox Header="Logging" 
+                                  Style="{StaticResource MaterialDesignCardGroupBox}"
+                                  Margin="0,0,0,16">
+                            <StackPanel Margin="16">
+                                <CheckBox Content="Enable file logging"
+                                          IsChecked="{Binding Advanced.EnableLogging}"
+                                          Margin="0,0,0,16"/>
+
+                                <ComboBox materialDesign:HintAssist.Hint="Log Level"
+                                          Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                          SelectedValue="{Binding Advanced.LogLevel, Mode=TwoWay}"
+                                          SelectedValuePath="Tag"
+                                          Margin="0,0,0,16">
+                                    <ComboBoxItem Content="Debug" Tag="Debug"/>
+                                    <ComboBoxItem Content="Info" Tag="Info"/>
+                                    <ComboBoxItem Content="Warning" Tag="Warning"/>
+                                    <ComboBoxItem Content="Error" Tag="Error"/>
+                                </ComboBox>
+
+                                <TextBox materialDesign:HintAssist.Hint="Log Retention (days, 0 = keep forever)"
+                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                         Text="{Binding Advanced.LogRetentionDays, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        -->
+            <!-- Updates & Reports -->
+            <!--
+                        <GroupBox Header="Updates And Reports" 
+                                  Style="{StaticResource MaterialDesignCardGroupBox}"
+                                  Margin="0,0,0,16">
+                            <StackPanel Margin="16">
+                                <CheckBox Content="Enable crash reports (anonymous)"
+                                          IsChecked="{Binding Advanced.EnableCrashReports}"
+                                          Margin="0,0,0,8"/>
+                                <CheckBox Content="Automatically check for updates"
+                                          IsChecked="{Binding Advanced.AutoCheckUpdates}"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        -->
+            <!-- Performance -->
+            <!--
+                        <GroupBox Header="Performance" 
+                                  Style="{StaticResource MaterialDesignCardGroupBox}"
+                                  Margin="0,0,0,16">
+                            <StackPanel Margin="16">
+                                <CheckBox Content="Enable performance monitoring"
+                                          IsChecked="{Binding Advanced.EnablePerformanceMonitoring}"
+                                          Margin="0,0,0,8"/>
+                                <CheckBox Content="Hardware acceleration"
+                                          IsChecked="{Binding Advanced.HardwareAcceleration}"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        -->
+            <!-- Language -->
+            <!--
+                        <GroupBox Header="Language" 
+                                  Style="{StaticResource MaterialDesignCardGroupBox}">
+                            <StackPanel Margin="16">
+                                <ComboBox materialDesign:HintAssist.Hint="Application Language"
+                                          Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                          SelectedValue="{Binding Advanced.Language, Mode=TwoWay}"
+                                          SelectedValuePath="Tag">
+                                    <ComboBoxItem Content="English (United States)" Tag="en-US"/>
+                                    <ComboBoxItem Content="Polski (Polska)" Tag="pl-PL"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>-->
+        </TabControl>
+
+        <!-- Footer Buttons -->
+        <Border Grid.Row="2"
+                Background="{DynamicResource MaterialDesignToolBarBackground}"
+                BorderBrush="{DynamicResource MaterialDesignDivider}"
+                BorderThickness="0,1,0,0"
+                Padding="24,16">
+            <DockPanel>
+                <Button DockPanel.Dock="Left"
+                        Content="RESET TO DEFAULTS"
+                        Command="{Binding ResetToDefaultsCommand}"
+                        Style="{StaticResource MaterialDesignOutlinedButton}"/>
+
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            DockPanel.Dock="Right">
+                    <Button Content="CANCEL"
+                            Command="{Binding CancelCommand}"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Width="120"
+                            Margin="0,0,16,0"
+                            Click="CancelButton_Click"/>
+
+                    <Button Content="SAVE"
+                            Command="{Binding SaveCommand}"
+                            Style="{StaticResource MaterialDesignRaisedButton}"
+                            Width="120"
+                            Background="{DynamicResource PrimaryHueMidBrush}"
+                            Foreground="White"
+                            Click="SaveButton_Click"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

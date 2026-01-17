@@ -17,9 +17,10 @@ namespace EasyFileManager.WPF.ViewModels;
 public partial class TabBarViewModel : ViewModelBase
 {
     private readonly IAppLogger<TabBarViewModel> _logger;
+    private readonly ISettingsService _settingsService;
     private readonly ITabPersistenceService _tabPersistenceService;
     private readonly Func<TabViewModel> _tabViewModelFactory;
-    private readonly string _panelId;
+    public readonly string _panelId;
     private Action<string>? _onPathChanged;
 
     [ObservableProperty]
@@ -38,11 +39,13 @@ public partial class TabBarViewModel : ViewModelBase
 
     public TabBarViewModel(
         IAppLogger<TabBarViewModel> logger,
+        ISettingsService settingsService,
         ITabPersistenceService tabPersistenceService,
         Func<TabViewModel> tabViewModelFactory,
         string panelId)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _tabPersistenceService = tabPersistenceService ?? throw new ArgumentNullException(nameof(tabPersistenceService));
         _tabViewModelFactory = tabViewModelFactory ?? throw new ArgumentNullException(nameof(tabViewModelFactory));
         _panelId = panelId ?? throw new ArgumentNullException(nameof(panelId));
@@ -59,6 +62,11 @@ public partial class TabBarViewModel : ViewModelBase
     public async Task InitializeAsync(string defaultPath)
     {
         _logger.LogInformation("Initializing tabs for panel {PanelId}", _panelId);
+
+        if(!_settingsService.Settings.Behavior.RememberLastSession)
+        {
+            return;
+        }
 
         // Try to load saved session
         var session = await _tabPersistenceService.LoadSessionAsync(_panelId);
@@ -104,7 +112,7 @@ public partial class TabBarViewModel : ViewModelBase
         else
         {
             _logger.LogInformation("No saved session found, creating default tab");
-            await NewTabAsync(defaultPath);
+            await NewTabAsync();
         }
     }
 
@@ -115,7 +123,9 @@ public partial class TabBarViewModel : ViewModelBase
     private async Task NewTabAsync(string? path = null)
     {
         var newTab = _tabViewModelFactory();
-        newTab.Path = path ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        newTab.Path = path ?? (_panelId == "left" ?
+            (String.IsNullOrWhiteSpace(_settingsService.Settings.Behavior.DefaultLeftPanelPath) ? Environment.GetFolderPath(Environment.SpecialFolder.Desktop) : _settingsService.Settings.Behavior.DefaultLeftPanelPath) :
+            (String.IsNullOrWhiteSpace(_settingsService.Settings.Behavior.DefaultRightPanelPath) ? Environment.GetFolderPath(Environment.SpecialFolder.Desktop) : _settingsService.Settings.Behavior.DefaultRightPanelPath));
         newTab.Order = Tabs.Count;
         newTab.UpdateTitle();
 
@@ -133,7 +143,9 @@ public partial class TabBarViewModel : ViewModelBase
     [RelayCommand]
     private async Task NewTabInCurrentDirectoryAsync()
     {
-        var path = ActiveTab?.Path ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var path = ActiveTab?.Path ?? (_panelId == "left" ?
+            (String.IsNullOrWhiteSpace(_settingsService.Settings.Behavior.DefaultLeftPanelPath) ? Environment.GetFolderPath(Environment.SpecialFolder.Desktop) : _settingsService.Settings.Behavior.DefaultLeftPanelPath) :
+            (String.IsNullOrWhiteSpace(_settingsService.Settings.Behavior.DefaultRightPanelPath) ? Environment.GetFolderPath(Environment.SpecialFolder.Desktop) : _settingsService.Settings.Behavior.DefaultRightPanelPath));
         await NewTabAsync(path);
     }
 
@@ -383,6 +395,11 @@ public partial class TabBarViewModel : ViewModelBase
     /// </summary>
     public async Task SaveSessionAsync()
     {
+        if (!_settingsService.Settings.Behavior.RememberLastSession)
+        {
+            return;
+        }
+
         try
         {
             var session = new TabSession

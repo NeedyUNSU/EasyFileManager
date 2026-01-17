@@ -228,8 +228,8 @@ public partial class App : Application
             var mainViewModel = _serviceProvider?.GetService<MainViewModel>();
             if (mainViewModel != null)
             {
-                _ = mainViewModel.LeftPanel.TabBar?.SaveSessionAsync().Wait(TimeSpan.FromSeconds(2));
-                _ = mainViewModel.RightPanel.TabBar?.SaveSessionAsync().Wait(TimeSpan.FromSeconds(2));
+                _ = mainViewModel.LeftPanel.TabBar?.SaveSessionAsync().Wait(TimeSpan.FromSeconds(5));
+                _ = mainViewModel.RightPanel.TabBar?.SaveSessionAsync().Wait(TimeSpan.FromSeconds(5));
                 Log.Information("Tab sessions saved");
             }
         }

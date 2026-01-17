@@ -25,20 +25,26 @@ public class AsyncFileSystemService : IFileSystemService
 
     public async Task<DirectoryEntry> LoadDirectoryAsync(
         string path,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, 
+        bool showFileExtension = true,
+        bool showHiddenFiles = false,
+        bool showSystemFiles = false)
     {
         if (_archiveService != null && _archiveService.IsArchivePath(path))
         {
             return await LoadArchiveDirectoryAsync(path, cancellationToken);
         }
 
-        return await LoadDirectoryAsync(path, null, cancellationToken);
+        return await LoadDirectoryAsync(path, null, cancellationToken, showFileExtension, showHiddenFiles, showSystemFiles);
     }
 
     public async Task<DirectoryEntry> LoadDirectoryAsync(
         string path,
         IProgress<LoadProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, 
+        bool showFileExtension = true, 
+        bool showHiddenFiles = false, 
+        bool showSystemFiles = false)
     {
         _logger.LogInformation("Loading directory: {Path}", path);
 
@@ -72,9 +78,24 @@ public class AsyncFileSystemService : IFileSystemService
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                var name = file.Name;
+                string fileName = name;
+
+                if (!showFileExtension) fileName = name.Substring(0, name.IndexOf('.'));
+
+                if (!showHiddenFiles && file.Attributes.HasFlag(FileAttributes.Hidden))
+                {
+                    continue;
+                }
+
+                if (!showSystemFiles && file.Attributes.HasFlag(FileAttributes.System))
+                {
+                    continue;
+                }
+
                 entry.Children.Add(new FileEntry
                 {
-                    Name = file.Name,
+                    Name = fileName,
                     FullPath = file.FullName,
                     Size = file.Length,
                     LastModified = file.LastWriteTimeUtc,
@@ -93,6 +114,16 @@ public class AsyncFileSystemService : IFileSystemService
             foreach (var dir in directories)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+
+                if (!showHiddenFiles && dir.Attributes.HasFlag(FileAttributes.Hidden))
+                {
+                    continue;
+                }
+
+                if (!showSystemFiles && dir.Attributes.HasFlag(FileAttributes.System))
+                {
+                    continue;
+                }
 
                 entry.Children.Add(new DirectoryEntry
                 {

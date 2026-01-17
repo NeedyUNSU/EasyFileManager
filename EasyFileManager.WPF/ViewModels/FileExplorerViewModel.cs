@@ -26,6 +26,7 @@ public partial class FileExplorerViewModel : ViewModelBase
     private readonly IFileTransferService _fileTransferService;
     private readonly DuplicateFinderService _duplicateFinderService;
     private readonly IArchiveService _archiveService;
+    private readonly ISettingsService _settingsService;
     private TabBarViewModel? _tabBarViewModel;
 
     // ====== ObservableProperties ======
@@ -99,6 +100,36 @@ public partial class FileExplorerViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isFilterVisible;
 
+    private bool IsExtensionVisible
+    {
+        get
+        {
+            if (_settingsService == null) return false;
+
+            return _settingsService.Settings.Appearance.ShowFileExtensions;
+        }
+    }
+
+    private bool IsHiddenFilesVisible
+    {
+        get
+        {
+            if (_settingsService == null) return false;
+
+            return _settingsService.Settings.Appearance.ShowHiddenFiles;
+        }
+    }
+
+    private bool IsSystemFilesVisible
+    {
+        get
+        {
+            if (_settingsService == null) return false;
+
+            return _settingsService.Settings.Appearance.ShowSystemFiles;
+        }
+    }
+
     // ====== Constructor with DI ======
 
     public FileExplorerViewModel(
@@ -106,15 +137,20 @@ public partial class FileExplorerViewModel : ViewModelBase
         IFileTransferService fileTransferService,
         DuplicateFinderService duplicateFinderService,
         IArchiveService archiveService,
+        ISettingsService settingsService,
         IAppLogger<FileExplorerViewModel> logger)
     {
         _fileSystemService = fileSystemService ?? throw new ArgumentNullException(nameof(fileSystemService));
         _fileTransferService = fileTransferService ?? throw new ArgumentNullException(nameof(fileTransferService));
         _duplicateFinderService = duplicateFinderService ?? throw new ArgumentNullException(nameof(duplicateFinderService));
         _archiveService = archiveService ?? throw new ArgumentNullException(nameof(archiveService));
+        _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-        CurrentPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        CurrentPath = (TabBar?._panelId == "left" ?
+            (String.IsNullOrWhiteSpace(_settingsService.Settings.Behavior.DefaultLeftPanelPath) ? Environment.GetFolderPath(Environment.SpecialFolder.Desktop) : _settingsService.Settings.Behavior.DefaultLeftPanelPath) :
+            (String.IsNullOrWhiteSpace(_settingsService.Settings.Behavior.DefaultRightPanelPath) ? Environment.GetFolderPath(Environment.SpecialFolder.Desktop) : _settingsService.Settings.Behavior.DefaultRightPanelPath));
+
         _ = LoadDrivesAsync();
         
     }
@@ -126,6 +162,7 @@ public partial class FileExplorerViewModel : ViewModelBase
     [RelayCommand]
     private async Task LoadDirectoryAsync()
     {
+
         if (string.IsNullOrWhiteSpace(CurrentPath))
             return;
 
@@ -139,7 +176,7 @@ public partial class FileExplorerViewModel : ViewModelBase
 
             try
             {
-                directory = await _fileSystemService.LoadDirectoryAsync(CurrentPath, default);
+                directory = await _fileSystemService.LoadDirectoryAsync(CurrentPath, default, IsExtensionVisible, IsHiddenFilesVisible, IsSystemFilesVisible);
             }
             catch (PasswordRequiredException ex)
             {
@@ -179,11 +216,6 @@ public partial class FileExplorerViewModel : ViewModelBase
             catch (InvalidPasswordException ex)
             {
                 _logger.LogWarning("Invalid password for: {Path}", ex.ArchivePath);
-                //MessageBox.Show(
-                //    "Invalid password.",
-                //    "Invalid Password",
-                //    MessageBoxButton.OK,
-                //    MessageBoxImage.Warning);
                 RefreshCurrentPathIfArchive();
                 StatusMessage = "Invalid password";
                 throw;
@@ -311,14 +343,9 @@ public partial class FileExplorerViewModel : ViewModelBase
         // Handle ArchiveFileEntry (open for preview or external viewer)
         if (item is ArchiveFileEntry archiveFile)
         {
+#pragma warning disable CS8602 // Wyłuskanie odwołania, które może mieć wartość null.
             await extractFromArchiveCommand.ExecuteAsync(item);
-            //openItemCommand.Execute(SelectedItem);
-            //// For now, just show message - Phase 2 will add preview/extract
-            //MessageBox.Show(
-            //    $"File inside archive: {archiveFile.Name}\n\nUse Extract (Ctrl+E) to extract this file.",
-            //    "Archive File",
-            //    MessageBoxButton.OK,
-            //    MessageBoxImage.Information);
+#pragma warning restore CS8602 // Wyłuskanie odwołania, które może mieć wartość null.
             return;
         }
 
@@ -362,6 +389,7 @@ public partial class FileExplorerViewModel : ViewModelBase
             return;
 
         // Toggle direction if same column
+#pragma warning disable MVVMTK0034 // Direct field reference to [ObservableProperty] backing field
         if (_sortColumn == columnName)
         {
             _sortDirection = _sortDirection == ListSortDirection.Ascending
@@ -375,6 +403,7 @@ public partial class FileExplorerViewModel : ViewModelBase
         }
 
         _logger.LogDebug("Sorted by {Column} {Direction}", _sortColumn, _sortDirection);
+#pragma warning restore MVVMTK0034 // Direct field reference to [ObservableProperty] backing field
     }
 
     [RelayCommand]
@@ -765,15 +794,6 @@ public partial class FileExplorerViewModel : ViewModelBase
         var count = SelectedItems.Count > 0 ? SelectedItems.Count : 1;
         var itemText = count == 1 ? $"'{SelectedItem.Name}'" : $"{count} items";
 
-        //var result = MessageBox.Show(
-        //    $"Move {itemText} to '{destinationPath}'?",
-        //    "Confirm Move",
-        //    MessageBoxButton.YesNo,
-        //    MessageBoxImage.Question);
-
-        //if (result != MessageBoxResult.Yes)
-        //    return;
-
         _logger.LogInformation("Moving {Count} item(s) to {Destination}", count, destinationPath);
 
         // Progress dialog
@@ -938,7 +958,6 @@ public partial class FileExplorerViewModel : ViewModelBase
                 TotalBytes = ap.TotalBytes
             };
 
-            // ✅ Update dialog directly instead of through intermediate Progress
             progressDialog.UpdateProgress(fileTransferProgress);
         });
 
@@ -1385,7 +1404,7 @@ public partial class FileExplorerViewModel : ViewModelBase
             Owner = Application.Current.MainWindow
         };
 
-        // ✅ Setup callback BEFORE showing dialog
+        // Setup callback BEFORE showing dialog
         progressDialog.OnViewResults = (duplicateGroups) =>
         {
             _logger.LogInformation("Opening duplicate results window with {Count} groups",
@@ -1434,12 +1453,16 @@ public partial class FileExplorerViewModel : ViewModelBase
             catch (OperationCanceledException)
             {
                 _logger.LogInformation("Duplicate scan cancelled by user");
+#pragma warning disable CS8619 // Obsługa wartości null dla typów referencyjnych w wartości jest niezgodna z typem docelowym.
                 return (false, null, (string?)null);
+#pragma warning restore CS8619 // Obsługa wartości null dla typów referencyjnych w wartości jest niezgodna z typem docelowym.
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Duplicate scan failed");
+#pragma warning disable CS8619 // Obsługa wartości null dla typów referencyjnych w wartości jest niezgodna z typem docelowym.
                 return (false, null, ex.Message);
+#pragma warning restore CS8619 // Obsługa wartości null dla typów referencyjnych w wartości jest niezgodna z typem docelowym.
             }
         });
 
@@ -1509,8 +1532,10 @@ public partial class FileExplorerViewModel : ViewModelBase
             SelectedDrive = AvailableDrives.FirstOrDefault(d =>
                 d.Name.TrimEnd('\\').Equals(currentDriveLetter, StringComparison.OrdinalIgnoreCase));
 
+#pragma warning disable CS8604 // Możliwy argument odwołania o wartości null.
             _logger.LogDebug("Loaded {Count} drives, selected: {Selected}",
                 AvailableDrives.Count, SelectedDrive?.Name);
+#pragma warning restore CS8604 // Możliwy argument odwołania o wartości null.
 
             CurrentPath = currentPath;
             await LoadDirectoryAsync();

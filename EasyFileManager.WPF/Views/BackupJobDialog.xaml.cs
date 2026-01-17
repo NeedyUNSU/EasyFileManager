@@ -79,7 +79,7 @@ public partial class BackupJobDialog : Window
 
         IntervalValueTextBox.Text = _job.Schedule.IntervalValue.ToString();
 
-        // FIX: Convert TimeSpan to DateTime for TimePicker
+        // Convert TimeSpan to DateTime for TimePicker
         DailyTimePicker.SelectedTime = DateTime.Today.Add(_job.Schedule.DailyTime);
         WeeklyDayComboBox.SelectedIndex = (int)_job.Schedule.WeeklyDay;
         WeeklyTimePicker.SelectedTime = DateTime.Today.Add(_job.Schedule.WeeklyTime);
@@ -108,7 +108,6 @@ public partial class BackupJobDialog : Window
 
     private void AddSourceButton_Click(object sender, RoutedEventArgs e)
     {
-        // FIX: Use Ookii.Dialogs.Wpf or native folder picker
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
             Title = "Select folder to backup",
@@ -138,7 +137,6 @@ public partial class BackupJobDialog : Window
 
     private void BrowseDestinationButton_Click(object sender, RoutedEventArgs e)
     {
-        // FIX: Use native folder picker
         var dialog = new Microsoft.Win32.OpenFileDialog
         {
             Title = "Select backup destination folder",
@@ -227,16 +225,19 @@ public partial class BackupJobDialog : Window
         // Save schedule
         if (FrequencyComboBox.SelectedItem is ComboBoxItem freqItem)
         {
-            _job.Schedule.Frequency = freqItem.Tag as string switch
+            unsafe
             {
-                "Manual" => BackupFrequency.Manual,
-                "EveryMinutes" => BackupFrequency.EveryMinutes,
-                "EveryHours" => BackupFrequency.EveryHours,
-                "Daily" => BackupFrequency.Daily,
-                "Weekly" => BackupFrequency.Weekly,
-                "Monthly" => BackupFrequency.Monthly,
-                _ => BackupFrequency.Manual
-            };
+                _job.Schedule.Frequency = (freqItem.Tag as string) switch
+                {
+                    "Manual" => BackupFrequency.Manual,
+                    "EveryMinutes" => BackupFrequency.EveryMinutes,
+                    "EveryHours" => BackupFrequency.EveryHours,
+                    "Daily" => BackupFrequency.Daily,
+                    "Weekly" => BackupFrequency.Weekly,
+                    "Monthly" => BackupFrequency.Monthly,
+                    _ => BackupFrequency.Manual
+                };
+            }
         }
 
         if (int.TryParse(IntervalValueTextBox.Text, out int intervalValue))

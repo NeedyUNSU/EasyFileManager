@@ -17,7 +17,7 @@ public interface IFileSystemService
     /// </summary>
     Task<DirectoryEntry> LoadDirectoryAsync(
         string path,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default, bool showFileExtension = true, bool showHiddenFiles = false, bool showSystemFiles = false);
 
     /// <summary>
     /// Loads directory with progress reporting
@@ -25,7 +25,7 @@ public interface IFileSystemService
     Task<DirectoryEntry> LoadDirectoryAsync(
         string path,
         IProgress<LoadProgress>? progress = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default, bool showFileExtension = true, bool showHiddenFiles = false, bool showSystemFiles = false);
 
     /// <summary>
     /// Gets available drives
