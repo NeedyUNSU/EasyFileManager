@@ -23,11 +23,11 @@ public partial class FindDuplicatesDialog : Window
 
         CurrentPathTextBlock.Text = currentPath;
 
-        // Hide "Both panels" option if no other panel
-        if (string.IsNullOrEmpty(otherPanelPath))
-        {
-            BothPanelsRadio.Visibility = Visibility.Collapsed;
-        }
+        //// Hide "Both panels" option if no other panel
+        //if (string.IsNullOrEmpty(otherPanelPath))
+        //{
+        //    BothPanelsRadio.Visibility = Visibility.Collapsed;
+        //}
 
         Options = new DuplicateScanOptions();
     }
@@ -63,11 +63,11 @@ public partial class FindDuplicatesDialog : Window
             Options.IncludeSubfolders = true;
             IncludeBothPanels = false;
         }
-        else if (BothPanelsRadio.IsChecked == true)
-        {
-            Options.IncludeSubfolders = true;
-            IncludeBothPanels = true;
-        }
+        //else if (BothPanelsRadio.IsChecked == true)
+        //{
+        //    Options.IncludeSubfolders = true;
+        //    IncludeBothPanels = true;
+        //}
         else // CurrentFolderRadio
         {
             Options.IncludeSubfolders = false;

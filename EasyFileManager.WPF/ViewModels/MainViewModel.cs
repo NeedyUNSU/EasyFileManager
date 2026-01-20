@@ -129,116 +129,116 @@ public partial class MainViewModel : ViewModelBase
         _logger.LogInformation("Initializing MainViewModel");
 
         #region testy
-        CustomMessageBox.Show("Operacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnie!");
+    //    CustomMessageBox.Show("Operacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnieOperacja zakończona pomyślnie!");
 
-        // Z tytułem
-        CustomMessageBox.Show("Plik został zapisany", "Sukces");
+    //    // Z tytułem
+    //    CustomMessageBox.Show("Plik został zapisany", "Sukces");
 
-        // Standardowe przyciski - OK/Cancel
-        var result = CustomMessageBox.Show(
-            "Czy chcesz kontynuować?",
-            "Potwierdzenie",
-            MessageBoxButton.OKCancel,
-            MessageBoxImage.Question);
+    //    // Standardowe przyciski - OK/Cancel
+    //    var result = CustomMessageBox.Show(
+    //        "Czy chcesz kontynuować?",
+    //        "Potwierdzenie",
+    //        MessageBoxButton.OKCancel,
+    //        MessageBoxImage.Question);
 
-        if (result == MessageBoxResult.OK)
-        {
-            // Kontynuuj
-            CustomMessageBox.Show("kontynułuj!", "pierdolenie", MessageBoxButton.OK);
-        }
+    //    if (result == MessageBoxResult.OK)
+    //    {
+    //        // Kontynuuj
+    //        CustomMessageBox.Show("kontynułuj!", "pierdolenie", MessageBoxButton.OK);
+    //    }
 
-        // Standardowe przyciski - Yes/No
-        var deleteResult = CustomMessageBox.Show(
-            "Czy na pewno chcesz usunąć ten plik?",
-            "Usuwanie",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+    //    // Standardowe przyciski - Yes/No
+    //    var deleteResult = CustomMessageBox.Show(
+    //        "Czy na pewno chcesz usunąć ten plik?",
+    //        "Usuwanie",
+    //        MessageBoxButton.YesNo,
+    //        MessageBoxImage.Warning);
 
-        if (deleteResult == MessageBoxResult.Yes)
-        {
-            // Usuń plik
+    //    if (deleteResult == MessageBoxResult.Yes)
+    //    {
+    //        // Usuń plik
 
-            CustomMessageBox.Show("yesy!", "pierdolenie", MessageBoxButton.OK);
-        }
+    //        CustomMessageBox.Show("yesy!", "pierdolenie", MessageBoxButton.OK);
+    //    }
 
-        // Standardowe przyciski - Yes/No/Cancel
-        var saveResult = CustomMessageBox.Show(
-            "Czy zapisać zmiany przed zamknięciem?",
-            "Niezapisane zmiany",
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Question);
+    //    // Standardowe przyciski - Yes/No/Cancel
+    //    var saveResult = CustomMessageBox.Show(
+    //        "Czy zapisać zmiany przed zamknięciem?",
+    //        "Niezapisane zmiany",
+    //        MessageBoxButton.YesNoCancel,
+    //        MessageBoxImage.Question);
 
-        switch (saveResult)
-        {
-            case MessageBoxResult.Yes:
-                // Zapisz i zamknij
-                CustomMessageBox.Show("yes!", "pierdolenie", MessageBoxButton.OK);
-                break;
-            case MessageBoxResult.No:
-                // Zamknij bez zapisywania
+    //    switch (saveResult)
+    //    {
+    //        case MessageBoxResult.Yes:
+    //            // Zapisz i zamknij
+    //            CustomMessageBox.Show("yes!", "pierdolenie", MessageBoxButton.OK);
+    //            break;
+    //        case MessageBoxResult.No:
+    //            // Zamknij bez zapisywania
 
-                CustomMessageBox.Show("no!", "pierdolenie", MessageBoxButton.OK);
-                break;
-            case MessageBoxResult.Cancel:
-                // Anuluj zamykanie
+    //            CustomMessageBox.Show("no!", "pierdolenie", MessageBoxButton.OK);
+    //            break;
+    //        case MessageBoxResult.Cancel:
+    //            // Anuluj zamykanie
 
-                CustomMessageBox.Show("cancel!", "pierdolenie", MessageBoxButton.OK);
-                break;
-        }
+    //            CustomMessageBox.Show("cancel!", "pierdolenie", MessageBoxButton.OK);
+    //            break;
+    //    }
 
-        // Różne ikony
-        CustomMessageBox.Show("Operacja udana!", "Sukces", MessageBoxButton.OK, MessageBoxImage.Information);
-        CustomMessageBox.Show("Uwaga! To może być niebezpieczne", "Ostrzeżenie", MessageBoxButton.OK, MessageBoxImage.Warning);
-        CustomMessageBox.Show("Wystąpił błąd!", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
+    //    // Różne ikony
+    //    CustomMessageBox.Show("Operacja udana!", "Sukces", MessageBoxButton.OK, MessageBoxImage.Information);
+    //    CustomMessageBox.Show("Uwaga! To może być niebezpieczne", "Ostrzeżenie", MessageBoxButton.OK, MessageBoxImage.Warning);
+    //    CustomMessageBox.Show("Wystąpił błąd!", "Błąd", MessageBoxButton.OK, MessageBoxImage.Error);
 
-        // Custom przyciski z użyciem standardowych wyników
-        var customModel = new CustomMessageBoxModel
-        {
-            Title = "Wybierz akcję",
-            Message = "Co chcesz zrobić z tym plikiem?",
-            Image = MessageBoxImage.Question,
-            CustomButtons = new List<DialogButton>
-    {
-        new DialogButton("OTWÓRZ", MessageBoxResult.Yes, true, false),
-        new DialogButton("EDYTUJ", MessageBoxResult.No, false, false),
-        new DialogButton("ANULUJ", MessageBoxResult.Cancel, false, true)
-    }
-        };
+    //    // Custom przyciski z użyciem standardowych wyników
+    //    var customModel = new CustomMessageBoxModel
+    //    {
+    //        Title = "Wybierz akcję",
+    //        Message = "Co chcesz zrobić z tym plikiem?",
+    //        Image = MessageBoxImage.Question,
+    //        CustomButtons = new List<DialogButton>
+    //{
+    //    new DialogButton("OTWÓRZ", MessageBoxResult.Yes, true, false),
+    //    new DialogButton("EDYTUJ", MessageBoxResult.No, false, false),
+    //    new DialogButton("ANULUJ", MessageBoxResult.Cancel, false, true)
+    //}
+    //    };
 
-        var customResult = CustomMessageBox.ShowCustom(customModel);
+    //    var customResult = CustomMessageBox.ShowCustom(customModel);
 
-        switch (customResult)
-        {
-            case MessageBoxResult.Yes: // OTWÓRZ
+    //    switch (customResult)
+    //    {
+    //        case MessageBoxResult.Yes: // OTWÓRZ
 
-                CustomMessageBox.Show("open!", "pierdolenie", MessageBoxButton.OK);           // Otwórz plik
-                break;
-            case MessageBoxResult.No: // EDYTUJ
+    //            CustomMessageBox.Show("open!", "pierdolenie", MessageBoxButton.OK);           // Otwórz plik
+    //            break;
+    //        case MessageBoxResult.No: // EDYTUJ
 
-                CustomMessageBox.Show("edit!", "pierdolenie", MessageBoxButton.OK);                     // Edytuj plik
-                break;
-            case MessageBoxResult.Cancel:
-                // Anulowano
+    //            CustomMessageBox.Show("edit!", "pierdolenie", MessageBoxButton.OK);                     // Edytuj plik
+    //            break;
+    //        case MessageBoxResult.Cancel:
+    //            // Anulowano
 
-                CustomMessageBox.Show("cancel!", "pierdolenie", MessageBoxButton.OK);
-                break;
-        }
+    //            CustomMessageBox.Show("cancel!", "pierdolenie", MessageBoxButton.OK);
+    //            break;
+    //    }
 
-        // Można też użyć innych standardowych wyników dla custom buttonów
-        var advancedModel = new CustomMessageBoxModel
-        {
-            Title = "Operacja na pliku",
-            Message = "Wybierz operację do wykonania",
-            Image = MessageBoxImage.Question,
-            CustomButtons = new List<DialogButton>
-    {
-        new DialogButton("KOPIUJ", MessageBoxResult.Yes, true, false),
-        new DialogButton("PRZENIEŚ", MessageBoxResult.No, false, false),
-        new DialogButton("ANULUJ", MessageBoxResult.Cancel, false, true)
-    }
-        };
+    //    // Można też użyć innych standardowych wyników dla custom buttonów
+    //    var advancedModel = new CustomMessageBoxModel
+    //    {
+    //        Title = "Operacja na pliku",
+    //        Message = "Wybierz operację do wykonania",
+    //        Image = MessageBoxImage.Question,
+    //        CustomButtons = new List<DialogButton>
+    //{
+    //    new DialogButton("KOPIUJ", MessageBoxResult.Yes, true, false),
+    //    new DialogButton("PRZENIEŚ", MessageBoxResult.No, false, false),
+    //    new DialogButton("ANULUJ", MessageBoxResult.Cancel, false, true)
+    //}
+    //    };
 
-        var advancedResult = CustomMessageBox.ShowCustom(advancedModel);
+    //    var advancedResult = CustomMessageBox.ShowCustom(advancedModel);
         #endregion 
 
         var paletteHelper = new PaletteHelper();

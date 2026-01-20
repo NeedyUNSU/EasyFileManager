@@ -40,6 +40,20 @@ public class BookmarkService : IBookmarkService
         _logger.LogDebug("BookmarkService initialized. Storage: {Path}", _bookmarksFilePath);
     }
 
+    public BookmarkService(IAppLogger<BookmarkService> logger, string customPath)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        //var appDataPath = Path.Combine(
+        //    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        //    "EasyFileManager");
+
+        Directory.CreateDirectory(customPath);
+        _bookmarksFilePath = Path.Combine(customPath, "bookmarks.json");
+
+        _logger.LogDebug("BookmarkService initialized. Storage: {Path}", _bookmarksFilePath);
+    }
+
     public async Task<List<Bookmark>> LoadBookmarksAsync(CancellationToken cancellationToken = default)
     {
         await _fileLock.WaitAsync(cancellationToken);
@@ -93,6 +107,17 @@ public class BookmarkService : IBookmarkService
         {
             _fileLock.Release();
         }
+    }
+
+    public async Task<Bookmark> AddBookmarkAsync(Bookmark bookmark, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(bookmark.Path))
+            throw new ArgumentException("Path cannot be empty", nameof(bookmark.Path));
+
+        if (!Directory.Exists(bookmark.Path))
+            throw new DirectoryNotFoundException($"Directory not found: {bookmark.Path}");
+
+        return AddBookmarkAsync(bookmark.Path, bookmark.Name, cancellationToken).Result;
     }
 
     public async Task<Bookmark> AddBookmarkAsync(string path, string? name = null, CancellationToken cancellationToken = default)

@@ -225,19 +225,17 @@ public partial class BackupJobDialog : Window
         // Save schedule
         if (FrequencyComboBox.SelectedItem is ComboBoxItem freqItem)
         {
-            unsafe
+            _job.Schedule.Frequency = (freqItem.Tag as string) switch
             {
-                _job.Schedule.Frequency = (freqItem.Tag as string) switch
-                {
-                    "Manual" => BackupFrequency.Manual,
-                    "EveryMinutes" => BackupFrequency.EveryMinutes,
-                    "EveryHours" => BackupFrequency.EveryHours,
-                    "Daily" => BackupFrequency.Daily,
-                    "Weekly" => BackupFrequency.Weekly,
-                    "Monthly" => BackupFrequency.Monthly,
-                    _ => BackupFrequency.Manual
-                };
-            }
+                "Manual" => BackupFrequency.Manual,
+                "EveryMinutes" => BackupFrequency.EveryMinutes,
+                "EveryHours" => BackupFrequency.EveryHours,
+                "Daily" => BackupFrequency.Daily,
+                "Weekly" => BackupFrequency.Weekly,
+                "Monthly" => BackupFrequency.Monthly,
+                _ => BackupFrequency.Manual
+            };
+
         }
 
         if (int.TryParse(IntervalValueTextBox.Text, out int intervalValue))

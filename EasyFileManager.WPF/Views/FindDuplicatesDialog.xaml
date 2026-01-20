@@ -52,10 +52,10 @@
                              Style="{StaticResource MaterialDesignRadioButton}"
                              Margin="0,0,0,8"/>
 
-                <RadioButton x:Name="BothPanelsRadio"
+                <!--<RadioButton x:Name="BothPanelsRadio"
                              Content="Both panels (left and right)"
                              Style="{StaticResource MaterialDesignRadioButton}"
-                             Margin="0,0,0,8"/>
+                             Margin="0,0,0,8"/>-->
 
                 <!-- Current path display -->
                 <Border Background="{DynamicResource MaterialDesignTextFieldBoxBackground}"
